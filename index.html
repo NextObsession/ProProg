@@ -301,6 +301,17 @@
     <div class="stat clickable" id="histStat" title="View history"><b id="stTotal">0min</b><span>Total time &#8250;</span></div>
   </div>
 
+  <div class="goalbox" id="countdownBox">
+    <div class="goalhead">
+      <span class="lbl">Countdown days
+        <input class="num" type="number" id="countdownStartInput" min="0" step="1">
+      </span>
+      <span class="val" id="countdownVal">0 days left</span>
+    </div>
+    <div class="gbar small" id="countdownGbarWrap"><div id="countdownGbar"></div></div>
+    <div id="countdownMsg" style="font-size:13px;color:var(--text-muted);margin-top:8px;text-align:center;"></div>
+  </div>
+
   <p class="hint"><kbd>Space</kbd> Start/Pause &nbsp;·&nbsp; <kbd>S</kbd> Skip &nbsp;·&nbsp; <kbd>R</kbd> −1 min &nbsp;·&nbsp; <kbd>+</kbd>/<kbd>-</kbd> Stage</p>
 </div>
 
@@ -401,6 +412,9 @@ let settings = {
   dailyGoalMin: DEFAULTS.dailyGoalMin,
   longBreakGoalMin: DEFAULTS.longBreakGoalMin,
   dayEndTime: "22:00",   // Day end time, format "HH:MM"
+  countdownStart: 0,
+  countdownRemaining: 0,
+  countdownLastUpdate: "",
 };
 
 /* Stats derived entirely from daily data -> no reset bugs.
@@ -470,6 +484,28 @@ function dayRec(key) {
   key = key || todayKey();
   if (!stats.days[key]) stats.days[key] = { focusSec: 0, points: 0, sessions: 0, goalDone: false };
   return stats.days[key];
+}
+function updateCountdown() {
+  const today = todayKey();
+  if (settings.countdownStart == null) settings.countdownStart = 0;
+  if (settings.countdownRemaining == null) settings.countdownRemaining = settings.countdownStart;
+  if (!settings.countdownLastUpdate) settings.countdownLastUpdate = today;
+  if (settings.countdownLastUpdate === today) return false;
+  const lastDate = new Date(settings.countdownLastUpdate + "T00:00:00");
+  const todayDate = new Date(today + "T00:00:00");
+  if (isNaN(lastDate.getTime()) || isNaN(todayDate.getTime())) {
+    settings.countdownLastUpdate = today;
+    return false;
+  }
+  const daysDiff = Math.floor((todayDate - lastDate) / 86400000);
+  if (daysDiff <= 0) {
+    settings.countdownLastUpdate = today;
+    return false;
+  }
+  settings.countdownRemaining = Math.max(0, settings.countdownRemaining - daysDiff);
+  settings.countdownLastUpdate = today;
+  save();
+  return true;
 }
 function totalFocusSec() { return Object.values(stats.days).reduce((a, d) => a + d.focusSec, 0); }
 function highscore() { return Object.values(stats.days).reduce((a, d) => Math.max(a, d.points), 0); }
@@ -750,6 +786,7 @@ function renderDayTime() {
 }
 
 function render() {
+  updateCountdown();
   applyAccent();
 
   // Treppe
@@ -793,6 +830,25 @@ function render() {
   if (settings.longBreakGoalMin <= 0) $("longGoalVal").textContent = "off";
   else if (state.longArmed) $("longGoalVal").textContent = "earned \u2713";
   else $("longGoalVal").textContent = "still " + Math.ceil((lSec - state.focusSinceLong) / 60) + " min";
+
+  // Countdown
+  const countdownStart = Math.max(0, settings.countdownStart || 0);
+  const countdownRemaining = Math.max(0, settings.countdownRemaining == null ? countdownStart : settings.countdownRemaining);
+  const countdownPct = countdownStart > 0 ? Math.round((countdownRemaining / countdownStart) * 100) : 0;
+  $("countdownGbar").style.width = countdownStart > 0 ? countdownPct + "%" : "0%";
+  $("countdownGbarWrap").classList.toggle("full", countdownRemaining <= 0 && countdownStart > 0);
+  if (countdownStart <= 0) {
+    $("countdownVal").textContent = "Set the start value above";
+    $("countdownMsg").textContent = "Enter a starting number to begin the daily countdown.";
+  } else if (countdownRemaining <= 0) {
+    $("countdownVal").textContent = "0 days left";
+    $("countdownMsg").textContent = "Countdown finished.";
+    $("countdownGbarWrap").style.setProperty("--gbar-color", "#3fc99a");
+  } else {
+    $("countdownVal").textContent = countdownRemaining + " day" + (countdownRemaining === 1 ? "" : "s") + " left";
+    $("countdownMsg").textContent = "Decrements by one each day until zero.";
+    $("countdownGbarWrap").style.setProperty("--gbar-color", "var(--accent)");
+  }
 
   // Statistik
   $("stScore").textContent = rec.points;
@@ -961,6 +1017,7 @@ function flushPush() {
 /* After a pull, bring the freshly loaded data into the running app. */
 function refreshUIFromStorage() {
   load();
+  updateCountdown();
   fillStartStage();
   $("autoChk").checked = settings.auto;
   $("climbChk").checked = settings.autoClimb;
@@ -968,6 +1025,7 @@ function refreshUIFromStorage() {
   $("dailyGoalInput").value = settings.dailyGoalMin;
   $("longGoalInput").value = settings.longBreakGoalMin;
   $("dayEndInput").value = settings.dayEndTime;
+  $("countdownStartInput").value = settings.countdownStart;
   buildLadder();
   render();
 }
@@ -1040,6 +1098,7 @@ function init() {
   $("dailyGoalInput").value = settings.dailyGoalMin;
   $("longGoalInput").value = settings.longBreakGoalMin;
   $("dayEndInput").value = settings.dayEndTime;
+  $("countdownStartInput").value = settings.countdownStart;
 
   $("startBtn").onclick = toggleRun;
   $("rewindBtn").onclick = rewind;
@@ -1073,6 +1132,13 @@ function init() {
   $("dailyGoalInput").onchange = (e) => { settings.dailyGoalMin = Math.max(0, parseInt(e.target.value, 10) || 0); save(); render(); };
   $("longGoalInput").onchange = (e) => { settings.longBreakGoalMin = Math.max(0, parseInt(e.target.value, 10) || 0); state.longArmed = false; save(); render(); };
   $("dayEndInput").onchange = (e) => { settings.dayEndTime = e.target.value || "22:00"; save(); render(); };
+  $("countdownStartInput").onchange = (e) => {
+    const value = Math.max(0, parseInt(e.target.value, 10) || 0);
+    settings.countdownStart = value;
+    settings.countdownRemaining = value;
+    settings.countdownLastUpdate = todayKey();
+    save(); render();
+  };
 
   // Modals
   $("histClose").onclick = () => $("histOverlay").classList.remove("open");
