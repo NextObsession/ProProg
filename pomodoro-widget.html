@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Pomodoro Widget</title>
+<style>
+  :root {
+    --accent: #3aa0ee;
+    --accent-2: #c64bd6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 200px; height: 80px; overflow: hidden; background: transparent; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    background: #14151c;
+    border: 1px solid #2d3140;
+    border-radius: 14px;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* Drag-Handle: ueberall ziehbar */
+  body { -webkit-app-region: drag; }
+  button { -webkit-app-region: no-drag; }
+
+  .inner { text-align: center; width: 100%; padding: 0 14px; }
+
+  .phase {
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 3px;
+  }
+
+  .clock {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 32px; font-weight: 300; font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+
+  .bar-wrap { height: 3px; background: #21242f; border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.3s linear; }
+
+  .offline { font-size: 12px; color: #555; }
+
+  /* Schliessen-Button oben rechts */
+  .close-btn {
+    position: absolute; top: 6px; right: 8px;
+    background: none; border: none; color: #444; font-size: 14px;
+    cursor: pointer; line-height: 1; padding: 0;
+    transition: color 0.15s;
+  }
+  .close-btn:hover { color: #aaa; }
+</style>
+</head>
+<body>
+
+<button class="close-btn" id="closeBtn" title="Widget schliessen">&times;</button>
+
+<div class="inner">
+  <div class="phase" id="phase">Warte...</div>
+  <div class="clock" id="clock">--:--</div>
+  <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+</div>
+
+<script>
+/* ============================================================
+   Widget liest denselben localStorage-Key wie die Hauptapp
+   (pp2_state) und berechnet die Restzeit live aus dem
+   endTime-Zeitstempel — exakt dieselbe Logik wie die Hauptapp.
+   Kein Netzwerk, keine Verbindung noetig, nur der Browser-Speicher.
+   ============================================================ */
+
+const ACCENTS = {
+  focus: ["#3aa0ee", "#c64bd6"],
+  break: ["#9d5ce0", "#e060b0"],
+  long:  ["#ec4899", "#a855f7"],
+};
+const LABELS = { focus: "Fokus", break: "Pause", long: "Lange Pause" };
+
+function fmt(sec) {
+  const m = Math.floor(Math.max(0, sec) / 60);
+  const s = Math.max(0, sec) % 60;
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+function tick() {
+  let raw;
+  try { raw = localStorage.getItem("pp2_state"); } catch(e) {}
+
+  if (!raw) {
+    document.getElementById("phase").textContent = "App nicht offen";
+    document.getElementById("clock").textContent = "--:--";
+    document.getElementById("bar").style.width = "0%";
+    return;
+  }
+
+  const s = JSON.parse(raw);
+  const [a, b] = ACCENTS[s.phase] || ACCENTS.focus;
+  document.documentElement.style.setProperty("--accent", a);
+  document.documentElement.style.setProperty("--accent-2", b);
+
+  let remaining;
+  if (s.running && s.endTime) {
+    remaining = Math.max(0, Math.round((s.endTime - Date.now()) / 1000));
+  } else {
+    remaining = Math.max(0, s.remaining || 0);
+  }
+
+  const pct = s.phaseTotal > 0 ? Math.min(100, Math.round((1 - remaining / s.phaseTotal) * 100)) : 0;
+
+  document.getElementById("phase").textContent =
+    (s.running ? "" : "\u23F8 ") + (LABELS[s.phase] || "Fokus");
+  document.getElementById("clock").textContent = fmt(remaining);
+  document.getElementById("bar").style.width = pct + "%";
+  document.title = fmt(remaining);
+}
+
+setInterval(tick, 500);
+tick();
+
+document.getElementById("closeBtn").onclick = () => window.close();
+</script>
+</body>
+</html>

@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progressive Pomodoro</title>
+<style>
+  /* ============================================================
+     DESIGN-TOKENS  ·  Tzeentch-Theme (Blau -> Lila -> Pink)
+     Obsidian-dunkler Hintergrund, kein Gelb.
+     Alle Farben zentral. Aussehen ändern? Hier anfangen.
+     ============================================================ */
+  :root {
+    --bg: #14151c;            /* Obsidian-Hintergrund, leicht kühl */
+    --surface: #191b25;       /* Karten */
+    --surface-2: #21242f;     /* hellere Flächen (Buttons, Pillen) */
+    --border: #2d3140;        /* Linien */
+    --text: #e9ebf4;          /* Haupttext */
+    --text-muted: #888fa6;    /* Nebentext */
+
+    /* Phasen-Akzente. accent + accent2 ergeben die Farbverläufe. */
+    --accent: #3aa0ee;        /* wird per JS je nach Phase gesetzt */
+    --accent-2: #c64bd6;
+    --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Sanftes Chaos-Glimmen im Hintergrund (Tzeentch-Stimmung). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    background:
+      radial-gradient(40% 50% at 18% 22%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+      radial-gradient(45% 55% at 82% 78%, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 70%);
+    filter: blur(40px);
+    z-index: 0;
+    pointer-events: none;
+    transition: background 0.8s ease;
+  }
+
+  .app { width: 100%; max-width: 540px; position: relative; z-index: 1; }
+
+  /* ---------- Stufen-Treppe ---------- */
+  .ladder {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 7px;
+    height: 76px;
+    margin-bottom: 26px;
+  }
+  .step {
+    width: 50px;
+    background: var(--surface-2);
+    border: none;
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .step span {
+    position: absolute; bottom: 5px; left: 0; right: 0;
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .step.done { background: #333a4e; }
+  .step.active {
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  .step.active span { color: #fff; font-weight: 600; }
+  .step:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  /* ---------- Timer-Karte ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 30px 26px 22px;
+    text-align: center;
+  }
+  .phase {
+    display: inline-block; font-size: 13px; letter-spacing: 0.07em;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 999px;
+    background: var(--surface-2); color: var(--accent); margin-bottom: 8px;
+  }
+  .clock {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: clamp(60px, 17vw, 92px); font-weight: 300; line-height: 1.1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 35%, transparent));
+  }
+  .next { font-size: 14px; color: var(--text-muted); margin: 4px 0 20px; }
+
+  .progress { height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-bottom: 22px; }
+  .progress > div {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.25s linear;
+  }
+
+  /* ---------- Buttons ---------- */
+  .controls { display: flex; justify-content: center; gap: 9px; margin-bottom: 18px; flex-wrap: wrap; }
+  button {
+    font: inherit; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 9px; padding: 10px 16px;
+    cursor: pointer; transition: background 0.15s, transform 0.05s, box-shadow 0.2s;
+  }
+  button:hover { background: #2a2f40; }
+  button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  button.primary {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    border-color: transparent; color: #fff; font-weight: 600; min-width: 116px;
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost { padding: 9px 13px; }
+
+  /* ---------- Einstellungs-Zeile ---------- */
+  .settings {
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 13px; border-top: 1px solid var(--border); padding-top: 16px;
+    font-size: 14px; color: var(--text-muted);
+  }
+  .settings label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .settings select, .num {
+    font: inherit; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px;
+  }
+  .num { width: 64px; text-align: center; }
+  .settings input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  /* ---------- Ziel-Balken ---------- */
+  .goalbox { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .goalhead { display: flex; justify-content: space-between; align-items: center; font-size: 14px; margin-bottom: 9px; }
+  .goalhead .lbl { color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .goalhead .val { font-variant-numeric: tabular-nums; }
+  .gbar { height: 12px; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
+  .gbar > div {
+    height: 100%; width: 0%; border-radius: 6px;
+    background: var(--gbar-color, linear-gradient(90deg, var(--accent), var(--accent-2)));
+    transition: width 0.4s ease, box-shadow 0.4s ease;
+  }
+  .gbar.full > div { box-shadow: 0 0 16px var(--accent-2); }
+  .gbar.small { height: 8px; }
+
+  /* ---------- Statistik ---------- */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; margin-top: 16px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; text-align: center; position: relative; }
+  .stat.clickable { cursor: pointer; }
+  .stat.clickable:hover { border-color: var(--accent); }
+  .stat b { display: block; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat.score b { background: linear-gradient(120deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat span { font-size: 12px; color: var(--text-muted); }
+  .flash { position: absolute; top: 8px; right: 12px; font-size: 13px; color: var(--accent-2); opacity: 0; }
+  .flash.show { animation: pop 1.2s ease; }
+  @keyframes pop { 0% { opacity: 0; transform: translateY(6px); } 20% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
+
+  .hint { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 14px; }
+  kbd { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: inherit; font-size: 11px; }
+
+  /* ---------- Modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(8, 9, 13, 0.72);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    width: 100%; max-width: 460px; max-height: 82vh; overflow-y: auto; padding: 22px;
+  }
+  .modal h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .modal .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal .close { float: right; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0 4px; }
+
+  .histrow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .histrow .date { font-size: 14px; }
+  .histrow .meta { font-size: 12px; color: var(--text-muted); }
+  .histrow .pts { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; background: linear-gradient(120deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .histrow .minibar { grid-column: 1 / -1; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+  .histrow .minibar > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+
+  .stagerow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .stagerow .idx { width: 22px; color: var(--text-muted); font-size: 13px; }
+  .stagerow .num { width: 70px; }
+  .stagerow .x { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 7px; padding: 6px 10px; }
+  .modal .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; font-size: 14px; }
+  .modal .actions { display: flex; gap: 9px; margin-top: 18px; }
+  .modal .actions button { flex: 1; }
+  .danger { color: #ff7676; border-color: #5a2a2f; }
+
+  /* ---------- Sync ---------- */
+  .syncpill { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--text-muted); cursor:pointer; }
+  .syncpill:hover { color:var(--text); }
+  .syncdot { width:9px; height:9px; border-radius:50%; background:#555; transition:all .3s; }
+  .syncdot.ok { background:#3fc99a; box-shadow:0 0 8px #3fc99a; }
+  .syncdot.sync { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:syncpulse 1s infinite; }
+  .syncdot.err { background:#e24b4a; box-shadow:0 0 8px #e24b4a; }
+  .syncdot.off { background:#555; }
+  @keyframes syncpulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .modal .fld { margin:12px 0; }
+  .modal .fld label { font-size:13px; color:var(--text-muted); display:block; margin-bottom:4px; }
+  .modal input.txt { width:100%; font:inherit; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:7px; padding:8px 10px; }
+
+  @media (max-width: 480px) { .stats { grid-template-columns: 1fr 1fr; } }
+  @media (prefers-reduced-motion: reduce) { *, body::before { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="ladder" id="ladder" role="group" aria-label="Fokus-Stufen"></div>
+
+  <div class="card" id="card">
+    <div class="phase" id="phase">Fokus</div>
+    <div class="clock" id="clock">25:00</div>
+    <div class="next" id="next">Danach: 5 min Pause</div>
+    <div class="progress"><div id="bar"></div></div>
+
+    <div class="controls">
+      <button class="primary" id="startBtn">Start</button>
+      <button id="rewindBtn" title="Aktuelle Session um 1 min zurückdrehen (gegen Slacken)">&minus;1 min</button>
+      <button id="skipBtn" title="Aktuelle Phase beenden (zählt nicht als geschafft)">Skip</button>
+      <button id="resetBtn" title="Timer zurücksetzen (Statistik bleibt)">Reset</button>
+    </div>
+
+    <div class="settings">
+      <label>Startstufe <select id="startStage"></select></label>
+      <label><input type="checkbox" id="autoChk" checked> Auto-Weiterlauf</label>
+      <label><input type="checkbox" id="climbChk" checked> Auto-Aufstieg</label>
+      <label><input type="checkbox" id="soundChk" checked> Ton</label>
+      <label><input type="checkbox" id="notifChk"> Benachrichtigung</label>
+      <button class="ghost" id="editBtn" title="Blöcke und Pausen anpassen">Blöcke &#9881;</button>
+      <button class="ghost" id="widgetBtn" title="Mini-Widget öffnen">Widget &#9707;</button>
+      <span class="syncpill" id="syncPill" title="Geräte-Sync einrichten"><span class="syncdot off" id="syncDot"></span><span id="syncTxt">Sync aus</span></span>
+    </div>
+  </div>
+
+  <!-- Tagesziel -->
+  <div class="goalbox">
+    <div class="goalhead">
+      <span class="lbl">Tagesziel
+        <input class="num" type="number" id="dailyGoalInput" min="0" step="5"> min
+      </span>
+      <span class="val" id="dailyGoalVal">0 / 0 min</span>
+    </div>
+    <div class="gbar" id="dailyGbarWrap"><div id="dailyGbar"></div></div>
+  </div>
+
+
+  <!-- Tageszeit-Tracker -->
+  <div class="goalbox" id="dayTimeBox">
+    <div class="goalhead">
+      <span class="lbl">
+        Tag endet
+        <input type="time" id="dayEndInput" value="22:00" style="font:inherit;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:3px 7px;width:auto;">
+      </span>
+      <span class="val" id="dayTimeVal"></span>
+    </div>
+    <div class="gbar small" id="dayTimeGbarWrap"><div id="dayTimeGbar"></div></div>
+    <div id="dayTimeMsg" style="font-size:13px;color:var(--text-muted);margin-top:8px;text-align:center;"></div>
+  </div>
+
+  <!-- Lange Pause nach X Fokusminuten -->
+  <div class="goalbox">
+    <div class="goalhead">
+      <span class="lbl">Lange Pause nach
+        <input class="num" type="number" id="longGoalInput" min="0" step="5"> min Fokus
+      </span>
+      <span class="val" id="longGoalVal"></span>
+    </div>
+    <div class="gbar small" id="longGbarWrap"><div id="longGbar"></div></div>
+  </div>
+
+  <!-- Statistik -->
+  <div class="stats">
+    <div class="stat score"><span class="flash" id="ptsFlash"></span><b id="stScore">0</b><span id="stScoreSub">Score heute · 0 Sessions</span></div>
+    <div class="stat"><b id="stHigh">0</b><span>Highscore (bester Tag)</span></div>
+    <div class="stat"><b id="stToday">0min</b><span>Zeit heute</span></div>
+    <div class="stat clickable" id="histStat" title="Verlauf ansehen"><b id="stTotal">0min</b><span>Zeit gesamt &#8250;</span></div>
+  </div>
+
+  <p class="hint"><kbd>Leertaste</kbd> Start/Pause &nbsp;·&nbsp; <kbd>S</kbd> Skip &nbsp;·&nbsp; <kbd>R</kbd> &minus;1 min &nbsp;·&nbsp; <kbd>+</kbd>/<kbd>-</kbd> Stufe</p>
+</div>
+
+<!-- Verlaufs-Modal -->
+<div class="overlay" id="histOverlay">
+  <div class="modal">
+    <button class="close" id="histClose" aria-label="Schließen">&times;</button>
+    <h2>Verlauf</h2>
+    <p class="sub">Produktivität pro Tag</p>
+    <div id="histList"></div>
+    <div class="actions"><button class="danger" id="wipeBtn">Alle Statistiken löschen</button></div>
+  </div>
+</div>
+
+<!-- Block-Editor-Modal -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <button class="close" id="editClose" aria-label="Schließen">&times;</button>
+    <h2>Blöcke anpassen</h2>
+    <p class="sub">Fokus- und Pausenzeiten pro Stufe (in Minuten)</p>
+    <div id="stageList"></div>
+    <button id="addStageBtn" class="ghost" style="margin-top:6px;">+ Stufe</button>
+    <div class="row"><span>Lange Pause</span><span><input class="num" type="number" id="longLenInput" min="1" step="1"> min</span></div>
+    <div class="actions">
+      <button id="editCancel">Abbrechen</button>
+      <button class="primary" id="editSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sync-Modal -->
+<div class="overlay" id="syncOverlay">
+  <div class="modal">
+    <button class="close" id="syncClose" aria-label="Schließen">&times;</button>
+    <h2>Geräte-Sync</h2>
+    <p class="sub">Synchronisiert deinen Fortschritt über all deine Geräte via Supabase. Trage auf jedem Gerät dieselben Werte ein.</p>
+    <div class="fld"><label>Supabase URL</label><input class="txt" id="syncUrl" placeholder="https://xxxx.supabase.co" spellcheck="false"></div>
+    <div class="fld"><label>Supabase Key (publishable / anon)</label><input class="txt" id="syncKey" placeholder="sb_publishable_..." spellcheck="false"></div>
+    <div class="fld"><label>Sync-Code (dein geheimes Passwort, überall gleich)</label><input class="txt" id="syncCode" placeholder="z.B. ein-langer-zufalls-code" spellcheck="false"></div>
+    <div id="syncMsg" style="font-size:13px;color:var(--text-muted);margin-top:10px;min-height:18px;"></div>
+    <div class="actions">
+      <button class="danger" id="syncOff">Sync aus</button>
+      <button class="primary" id="syncSave">Speichern &amp; verbinden</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   1) KONFIGURATION  ·  Standardwerte
+   Diese werden von gespeicherten Einstellungen überschrieben,
+   sobald du im Editor etwas änderst.
+   f = Fokusminuten, b = Pausenminuten je Stufe.
+   ============================================================ */
+const DEFAULTS = {
+  stages: [
+    { f: 7,  b: 2 },
+    { f: 14, b: 3 },
+    { f: 25, b: 5 },
+    { f: 30, b: 7 },
+    { f: 50, b: 10 },
+    { f: 70, b: 15 },
+    { f: 120, b: 20 },   // neues Level nach 70
+  ],
+  longBreakMin: 25,
+  defaultStage: 2,
+  dailyGoalMin: 180,        // Tagesziel in Minuten
+  longBreakGoalMin: 120,    // Fokusminuten bis zur verdienten langen Pause
+};
+
+const POINTS_EXP = 1.5;      // >1 => längere Sessions lohnen sich überproportional
+const PARTIAL_SHARE = 0.4;   // max. Anteil der vollen Punkte, den man für abgebrochene Zeit bekommt
+const CUT_MIN = 10;          // Rest >= 10 min => Block sofort abcutten + nach langer Pause neu; < 10 min => fertig laufen lassen
+const MIN_PER_DAY = 1440;    // 24h. Ab hier zeigt "Zeit gesamt" Tage an. Frei änderbar.
+
+/* ============================================================
+   2) ZUSTAND, EINSTELLUNGEN, STATISTIK
+   ============================================================ */
+let STAGES = DEFAULTS.stages.map(s => ({ ...s }));   // aktive Stufen (editierbar)
+let longBreakMin = DEFAULTS.longBreakMin;
+
+let state = {
+  stageIndex: DEFAULTS.defaultStage,
+  phase: "focus",            // "focus" | "break" | "long"
+  remaining: 0,              // Restsekunden der Phase
+  phaseTotal: 0,             // Gesamtsekunden der Phase (für den Balken)
+  running: false,
+  endTime: null,             // Ziel-Zeitstempel (ms)
+  focusSinceLong: 0,         // Fokussekunden seit der letzten langen Pause
+  longArmed: false,          // lange Pause wurde verdient (Signal gespielt)
+  longPending: false,        // aktuellen Block noch fertig machen, dann lange Pause
+  blockToRestart: null,      // verworfener Block, der nach langer Pause neu startet
+};
+
+let settings = {
+  startStage: DEFAULTS.defaultStage,
+  auto: true, autoClimb: true, sound: true, notify: false,
+  dailyGoalMin: DEFAULTS.dailyGoalMin,
+  longBreakGoalMin: DEFAULTS.longBreakGoalMin,
+  dayEndTime: "22:00",   // Tagesende, Format "HH:MM"
+};
+
+/* Statistik komplett aus Tagesdaten abgeleitet -> keine Reset-Bugs.
+   days = { "2026-06-17": { focusSec, points, sessions, goalDone } } */
+let stats = { days: {} };
+
+let audioCtx = null;
+let lastTick = Date.now();
+const $ = (id) => document.getElementById(id);
+
+/* ============================================================
+   3) SPEICHERN / LADEN
+   ============================================================ */
+const KEYS = { state: "pp2_state", settings: "pp2_settings", stats: "pp2_stats", stages: "pp2_stages" };
+
+function save() {
+  localStorage.setItem(KEYS.state, JSON.stringify(state));
+  localStorage.setItem(KEYS.settings, JSON.stringify(settings));
+  localStorage.setItem(KEYS.stats, JSON.stringify(stats));
+  localStorage.setItem(KEYS.stages, JSON.stringify({ STAGES, longBreakMin }));
+  schedulePush();   // bei Änderung entprellt in die Cloud hochladen (falls Sync an)
+}
+
+function load() {
+  try {
+    const st = JSON.parse(localStorage.getItem(KEYS.stages));
+    if (st && Array.isArray(st.STAGES) && st.STAGES.length) { STAGES = st.STAGES; longBreakMin = st.longBreakMin || longBreakMin; }
+    const e = JSON.parse(localStorage.getItem(KEYS.settings)); if (e) settings = Object.assign(settings, e);
+    const t = JSON.parse(localStorage.getItem(KEYS.stats));   if (t && t.days) stats = t;
+    const s = JSON.parse(localStorage.getItem(KEYS.state));
+    if (s) {
+      state = Object.assign(state, s);
+      // War der Timer beim Schließen aktiv, verstrichene Zeit nachrechnen.
+      if (state.running && state.endTime) {
+        const rest = Math.round((state.endTime - Date.now()) / 1000);
+        if (rest > 0) { state.remaining = rest; }
+        else { state.remaining = 0; state.running = false; state.endTime = null; transition(true); }
+      }
+    }
+  } catch (err) { console.warn("Laden fehlgeschlagen:", err); }
+  state.stageIndex = Math.min(state.stageIndex, STAGES.length - 1);
+  if (state.remaining <= 0 && state.phase === "focus") setPhase("focus", STAGES[state.stageIndex].f * 60);
+}
+
+/* ============================================================
+   4) HILFSFUNKTIONEN
+   ============================================================ */
+function fmtClock(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+/* Live-Dauer. withDays=true zeigt ab 24h auch Tage. */
+function fmtDuration(totalSec, withDays) {
+  let m = Math.floor(totalSec / 60);
+  if (withDays && m >= MIN_PER_DAY) {
+    const d = Math.floor(m / MIN_PER_DAY); m -= d * MIN_PER_DAY;
+    const h = Math.floor(m / 60), mm = m % 60;
+    return d + (d === 1 ? " Tag " : " Tage ") + h + "h " + String(mm).padStart(2, "0") + "min";
+  }
+  if (m >= 60) { const h = Math.floor(m / 60), mm = m % 60; return h + "h " + String(mm).padStart(2, "0") + "min"; }
+  return m + "min";
+}
+
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+function dayRec(key) {
+  key = key || todayKey();
+  if (!stats.days[key]) stats.days[key] = { focusSec: 0, points: 0, sessions: 0, goalDone: false };
+  return stats.days[key];
+}
+function totalFocusSec() { return Object.values(stats.days).reduce((a, d) => a + d.focusSec, 0); }
+function highscore() { return Object.values(stats.days).reduce((a, d) => Math.max(a, d.points), 0); }
+function fmtDate(key) { const [y, m, d] = key.split("-"); return d + "." + m + "." + y; }
+
+/* ============================================================
+   5) TON  ·  normales Signal vs. spezielles Belohnungs-Signal
+   ============================================================ */
+function tone(freq, start, dur, gain) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.value = freq; o.type = "sine";
+  g.gain.setValueAtTime(0.0001, audioCtx.currentTime + start);
+  g.gain.exponentialRampToValueAtTime(gain, audioCtx.currentTime + start + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + start + dur);
+  o.start(audioCtx.currentTime + start); o.stop(audioCtx.currentTime + start + dur + 0.02);
+}
+function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (audioCtx && audioCtx.state === "suspended") audioCtx.resume(); }
+
+function beep() { // normaler Phasenwechsel
+  if (!settings.sound) return; ensureAudio(); if (!audioCtx) return;
+  const f = state.phase === "focus" ? 660 : 880;
+  [0, 0.32].forEach(t => tone(f, t, 0.28, 0.28));
+}
+function fanfare() { // lange Pause / Tagesziel erreicht
+  if (!settings.sound) return; ensureAudio(); if (!audioCtx) return;
+  [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.13, 0.22, 0.3));
+}
+
+function notify(title, body) {
+  if (!settings.notify || !("Notification" in window) || Notification.permission !== "granted") return;
+  try { new Notification(title, { body }); } catch (e) {}
+}
+
+/* ============================================================
+   6) FOKUSZEIT GUTSCHREIBEN / ZURUECKNEHMEN  (Live-Tracking)
+   Es zählt die tatsächlich verstrichene Fokuszeit, nicht die
+   Blocklänge. Deshalb stimmen Ziele auch beim Wechseln der Blöcke.
+   ============================================================ */
+function addFocus(sec) {
+  const rec = dayRec();
+  rec.focusSec += sec;
+  state.focusSinceLong += sec;
+  // Tagesziel erreicht?
+  if (settings.dailyGoalMin > 0 && !rec.goalDone && rec.focusSec >= settings.dailyGoalMin * 60) {
+    rec.goalDone = true; fanfare(); notify("Tagesziel erreicht", settings.dailyGoalMin + " Minuten geschafft.");
+  }
+  checkLongBreak();
+}
+function removeFocus(sec) { // für den -1-Button
+  const rec = dayRec();
+  rec.focusSec = Math.max(0, rec.focusSec - sec);
+  state.focusSinceLong = Math.max(0, state.focusSinceLong - sec);
+}
+
+/* Lange Pause verdient? */
+function checkLongBreak() {
+  if (settings.longBreakGoalMin <= 0 || state.longArmed) return;
+  if (state.focusSinceLong < settings.longBreakGoalMin * 60) return;
+  state.longArmed = true; fanfare(); notify("Lange Pause verdient", longBreakMin + " Minuten Erholung freigeschaltet.");
+  if (state.remaining >= CUT_MIN * 60) {
+    // Noch viel übrig -> Block sofort abcutten, lange Pause jetzt, Block danach frisch neu.
+    awardPartial();
+    state.blockToRestart = state.stageIndex;
+    startLongBreak();
+  } else {
+    // Fast fertig (< 10 min) -> Block zu Ende laufen lassen, dann lange Pause.
+    state.longPending = true;
+  }
+}
+
+/* ============================================================
+   7) KERNLOGIK
+   ============================================================ */
+function setPhase(phase, seconds) {
+  state.phase = phase; state.remaining = seconds; state.phaseTotal = seconds;
+  if (state.running) state.endTime = Date.now() + seconds * 1000;
+}
+
+function startLongBreak() {
+  setPhase("long", longBreakMin * 60);
+  state.focusSinceLong = 0; state.longArmed = false; state.longPending = false;
+}
+
+function round10(v) { return Math.round(v / 10) * 10; }                 // immer auf glatte Zehner
+function sessionPoints(min) { return round10(Math.pow(min, POINTS_EXP)); } // volle Punkte einer fertigen Session
+
+function awardSession(min) { // VOLLE Punkte: nur wenn die Session natürlich bis zum Ende lief
+  const pts = sessionPoints(min);
+  const rec = dayRec(); rec.points += pts; rec.sessions += 1;
+  flashPoints(pts);
+}
+
+function awardPartial() { // TEILPUNKTE: beim Abbrechen/Wechseln, je nach Fortschritt
+  if (state.phase !== "focus") return;
+  const elapsed = Math.max(0, state.phaseTotal - state.remaining);  // bisher gearbeitete Sekunden
+  if (elapsed <= 0) return;
+  const x = Math.min(1, elapsed / state.phaseTotal);                // Fortschritt 0..1
+  const pts = round10(sessionPoints(STAGES[state.stageIndex].f) * PARTIAL_SHARE * x);
+  if (pts > 0) { dayRec().points += pts; flashPoints(pts); }
+}
+
+/* natural = true: Phase lief bis zum Ende. false: per Skip beendet. */
+function transition(natural) {
+  if (state.phase === "focus") {
+    if (natural) awardSession(STAGES[state.stageIndex].f);
+    else awardPartial();
+    if (state.longPending) { state.longPending = false; startLongBreak(); }
+    else { beep(); setPhase("break", STAGES[state.stageIndex].b * 60); notify("Pause", STAGES[state.stageIndex].b + " min. Kein Handy, kein neuer Input."); }
+  } else if (state.phase === "long") {
+    beep();
+    if (state.blockToRestart != null) { state.stageIndex = state.blockToRestart; state.blockToRestart = null; }
+    setPhase("focus", STAGES[state.stageIndex].f * 60);
+  } else { // kurze Pause vorbei
+    beep();
+    if (settings.autoClimb) state.stageIndex = Math.min(state.stageIndex + 1, STAGES.length - 1);
+    setPhase("focus", STAGES[state.stageIndex].f * 60);
+  }
+  if (!settings.auto) { state.running = false; state.endTime = null; }
+  save(); render();
+}
+
+function toggleRun() {
+  state.running = !state.running;
+  if (state.running) { state.endTime = Date.now() + state.remaining * 1000; ensureAudio(); lastTick = Date.now(); }
+  else { state.endTime = null; }
+  save(); render();
+}
+
+function rewind() { // -1 min: Session zurückdrehen + diese Minute nicht aufs Ziel zählen
+  if (state.phase !== "focus") return;
+  const elapsed = state.phaseTotal - state.remaining;     // bisher in diesem Block
+  const actual = Math.min(60, elapsed);                   // nicht vor den Blockanfang
+  if (actual <= 0) return;
+  state.remaining += actual;
+  if (state.running) state.endTime += actual * 1000;
+  removeFocus(actual);
+  save(); render();
+}
+
+function changeStage(delta) {
+  const before = state.stageIndex;
+  const next = Math.min(STAGES.length - 1, Math.max(0, before + delta));
+  if (next === before) return;
+  // Wechsel während des Fokus: Teilpunkte für den verlassenen Block, dann
+  // neuen Block frisch setzen. Bereits gezählte Fokuszeit bleibt den Zielen erhalten.
+  if (state.phase === "focus") awardPartial();
+  state.stageIndex = next;
+  if (state.phase === "focus") setPhase("focus", STAGES[next].f * 60);
+  save(); render();
+}
+function setStage(index) { changeStage(index - state.stageIndex); }
+
+function resetTimer() {
+  if (state.phase === "focus") awardPartial();
+  state.running = false; state.endTime = null;
+  state.stageIndex = Math.min(settings.startStage, STAGES.length - 1);
+  state.focusSinceLong = 0; state.longArmed = false; state.longPending = false; state.blockToRestart = null;
+  setPhase("focus", STAGES[state.stageIndex].f * 60);
+  save(); render();
+}
+
+/* Haupt-Tick: 4x/Sekunde. Restzeit aus Zeitstempel -> bleibt korrekt,
+   auch wenn der Tab im Hintergrund gedrosselt wird. */
+setInterval(() => {
+  const now = Date.now();
+  const delta = (now - lastTick) / 1000; lastTick = now;
+  if (!state.running) return;
+  const prev = state.remaining;
+  state.remaining = Math.max(0, Math.round((state.endTime - now) / 1000));
+  if (state.phase === "focus") { const c = Math.min(delta, prev); if (c > 0) addFocus(c); }
+  if (state.remaining <= 0) transition(true); else render();
+}, 250);
+
+/* ============================================================
+   8) DARSTELLUNG
+   ============================================================ */
+const ACCENTS = {
+  focus: ["#3aa0ee", "#c64bd6"],   // Blau -> Magenta
+  break: ["#9d5ce0", "#e060b0"],   // Lila -> Pink
+  long:  ["#ec4899", "#a855f7"],   // Pink -> Violett
+};
+
+function applyAccent() {
+  const [a, b] = ACCENTS[state.phase] || ACCENTS.focus;
+  document.documentElement.style.setProperty("--accent", a);
+  document.documentElement.style.setProperty("--accent-2", b);
+}
+
+function buildLadder() {
+  const ladder = $("ladder"); ladder.innerHTML = "";
+  const maxF = Math.max(...STAGES.map(s => s.f));
+  STAGES.forEach((s, i) => {
+    const el = document.createElement("button");
+    el.className = "step";
+    el.style.height = Math.round(26 + Math.sqrt(s.f / maxF) * 48) + "px"; // sqrt: kleine Stufen bleiben sichtbar
+    el.innerHTML = "<span>" + s.f + "</span>";
+    el.title = s.f + " min Fokus / " + s.b + " min Pause";
+    el.setAttribute("aria-label", "Stufe " + (i + 1) + ": " + s.f + " Minuten Fokus");
+    el.onclick = () => setStage(i);
+    ladder.appendChild(el);
+  });
+}
+
+function flashPoints(pts) {
+  const el = $("ptsFlash"); el.textContent = "+" + pts;
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+
+function renderDayTime() {
+  const now = new Date();
+
+  // Tagesende-Zeitstempel für heute berechnen
+  const [endH, endM] = settings.dayEndTime.split(":").map(Number);
+  const end = new Date(now); end.setHours(endH, endM, 0, 0);
+
+  // Tagesstart = 06:00 (feste Annahme: 6–22 Uhr = 16h Tag)
+  const start = new Date(now); start.setHours(6, 0, 0, 0);
+  const dayTotalMs = end - start;
+
+  const secLeft = Math.max(0, Math.round((end - now) / 1000));  // Sekunden bis Tagesende
+  const minLeft = Math.floor(secLeft / 60);
+  const pastEnd = now >= end;
+
+  // Fortschrittsbalken: wie viel vom Tag ist weg
+  const dayGonePct = dayTotalMs > 0
+    ? Math.min(100, Math.round(((now - start) / dayTotalMs) * 100))
+    : 100;
+  $("dayTimeGbar").style.width = dayGonePct + "%";
+
+  // Restzeit als lesbaren String
+  const hLeft = Math.floor(minLeft / 60), mLeft = minLeft % 60;
+  const restStr = hLeft > 0 ? hLeft + "h " + String(mLeft).padStart(2, "0") + "min" : mLeft + "min";
+  $("dayTimeVal").textContent = pastEnd ? "Tag beendet" : restStr + " noch  (" + dayGonePct + "% rum)";
+
+  // Erreichbarkeits-Rechnung
+  const rec = dayRec();
+  const goalSec = settings.dailyGoalMin * 60;
+  const doneMin = Math.floor(rec.focusSec / 60);
+  const missingMin = Math.max(0, settings.dailyGoalMin - doneMin);
+  const msg = $("dayTimeMsg");
+  const bar = $("dayTimeGbarWrap");
+
+  if (settings.dailyGoalMin <= 0) {
+    msg.textContent = "Kein Tagesziel gesetzt.";
+    bar.style.setProperty("--gbar-color", "var(--accent)");
+    return;
+  }
+  if (rec.goalDone) {
+    msg.textContent = "Tagesziel erreicht! " + (pastEnd ? "" : restStr + " Puffer.");
+    bar.style.setProperty("--gbar-color", "#3fc99a");
+    return;
+  }
+  if (pastEnd) {
+    msg.textContent = "Tag vorbei — Ziel nicht erreicht (" + missingMin + " min gefehlt).";
+    bar.style.setProperty("--gbar-color", "#e24b4a");
+    return;
+  }
+
+  // Noch machbar? Annahme: Fokus-Effizienz ~70% der Restzeit
+  // (der Rest geht für Pausen drauf)
+  const achievableFocusMin = Math.floor(minLeft * 0.7);
+  const reachable = achievableFocusMin >= missingMin;
+
+  if (reachable) {
+    // Wann muss man spätestens fertig sein?
+    // missingMin nötige Fokusmin, davon 70% der Restzeit -> benötigte Restzeit = missingMin / 0.7
+    const neededMin = Math.ceil(missingMin / 0.7);
+    const deadline = new Date(end.getTime() - neededMin * 60 * 1000);
+    const dh = deadline.getHours(), dm = deadline.getMinutes();
+    const deadStr = String(dh).padStart(2, "0") + ":" + String(dm).padStart(2, "0");
+    msg.textContent = "Noch " + missingMin + " min nötig · spätestens bis " + deadStr + " Uhr starten.";
+    bar.style.setProperty("--gbar-color", "var(--accent)");
+  } else {
+    msg.textContent = "Ziel heute nicht mehr erreichbar (" + missingMin + " min fehlen, nur ~" + achievableFocusMin + " min realistisch).";
+    bar.style.setProperty("--gbar-color", "#e24b4a");
+  }
+}
+
+function render() {
+  applyAccent();
+
+  // Treppe
+  document.querySelectorAll(".step").forEach((el, i) => {
+    el.classList.toggle("active", i === state.stageIndex);
+    el.classList.toggle("done", i < state.stageIndex);
+  });
+
+  // Timer
+  const labels = { focus: "Fokus · Stufe " + (state.stageIndex + 1), break: "Pause", long: "Lange Pause" };
+  $("phase").textContent = labels[state.phase];
+  $("clock").textContent = fmtClock(state.remaining);
+  $("bar").style.width = (state.phaseTotal > 0 ? Math.round((1 - state.remaining / state.phaseTotal) * 100) : 0) + "%";
+
+  if (state.phase === "focus") {
+    if (state.longPending) $("next").textContent = "Danach: lange Pause (" + longBreakMin + " min)";
+    else $("next").textContent = "Danach: " + STAGES[state.stageIndex].b + " min Pause";
+  } else if (state.phase === "long") {
+    const nx = state.blockToRestart != null ? state.blockToRestart : state.stageIndex;
+    $("next").textContent = "Danach: " + STAGES[nx].f + " min Fokus";
+  } else {
+    const nx = settings.autoClimb ? Math.min(state.stageIndex + 1, STAGES.length - 1) : state.stageIndex;
+    $("next").textContent = "Danach: " + STAGES[nx].f + " min Fokus (Stufe " + (nx + 1) + ")";
+  }
+  $("startBtn").textContent = state.running ? "Pause" : "Start";
+  $("rewindBtn").disabled = state.phase !== "focus";
+  $("rewindBtn").style.opacity = state.phase !== "focus" ? 0.45 : 1;
+
+  // Tagesziel
+  const rec = dayRec();
+  const goalSec = settings.dailyGoalMin * 60;
+  const dPct = goalSec > 0 ? Math.min(100, (rec.focusSec / goalSec) * 100) : 0;
+  $("dailyGbar").style.width = dPct + "%";
+  $("dailyGbarWrap").classList.toggle("full", dPct >= 100);
+  $("dailyGoalVal").textContent = fmtDuration(rec.focusSec, false) + " / " + settings.dailyGoalMin + "min  (" + Math.round(dPct) + "%)" + (rec.goalDone ? "  \u2713" : "");
+
+  // Lange Pause
+  const lSec = settings.longBreakGoalMin * 60;
+  const lPct = lSec > 0 ? Math.min(100, (state.focusSinceLong / lSec) * 100) : 0;
+  $("longGbar").style.width = lPct + "%";
+  if (settings.longBreakGoalMin <= 0) $("longGoalVal").textContent = "aus";
+  else if (state.longArmed) $("longGoalVal").textContent = "verdient \u2713";
+  else $("longGoalVal").textContent = "noch " + Math.ceil((lSec - state.focusSinceLong) / 60) + " min";
+
+  // Statistik
+  $("stScore").textContent = rec.points;
+  $("stScoreSub").textContent = "Score heute · " + rec.sessions + (rec.sessions === 1 ? " Session" : " Sessions");
+  $("stHigh").textContent = highscore();
+  $("stToday").textContent = fmtDuration(rec.focusSec, false);
+  $("stTotal").innerHTML = fmtDuration(totalFocusSec(), true) + " <span style='color:var(--text-muted)'>&#8250;</span>";
+
+  document.title = state.running ? fmtClock(state.remaining) + " · " + labels[state.phase] : "Progressive Pomodoro";
+  renderDayTime();
+}
+
+/* ============================================================
+   9) VERLAUF + BLOCK-EDITOR (Modals)
+   ============================================================ */
+function openHist() {
+  const list = $("histList"); list.innerHTML = "";
+  const keys = Object.keys(stats.days).sort().reverse();
+  if (!keys.length) { list.innerHTML = "<p class='sub'>Noch keine Daten.</p>"; }
+  const maxSec = Math.max(1, ...keys.map(k => stats.days[k].focusSec));
+  keys.forEach(k => {
+    const d = stats.days[k];
+    const row = document.createElement("div"); row.className = "histrow";
+    row.innerHTML =
+      "<div><div class='date'>" + fmtDate(k) + "</div><div class='meta'>" + fmtDuration(d.focusSec, false) + " · " + d.sessions + " Sessions</div></div>" +
+      "<div class='pts'>" + d.points + " P</div>" +
+      "<div class='minibar'><div style='width:" + Math.round(d.focusSec / maxSec * 100) + "%'></div></div>";
+    list.appendChild(row);
+  });
+  $("histOverlay").classList.add("open");
+}
+
+function openEdit() {
+  const list = $("stageList"); list.innerHTML = "";
+  STAGES.forEach((s, i) => {
+    const row = document.createElement("div"); row.className = "stagerow";
+    row.innerHTML =
+      "<span class='idx'>" + (i + 1) + "</span>" +
+      "<input class='num' type='number' min='1' value='" + s.f + "' data-i='" + i + "' data-k='f'> Fokus" +
+      "<input class='num' type='number' min='1' value='" + s.b + "' data-i='" + i + "' data-k='b'> Pause" +
+      "<button class='x' data-del='" + i + "'>&times;</button>";
+    list.appendChild(row);
+  });
+  list.querySelectorAll("button[data-del]").forEach(b => b.onclick = () => {
+    if (STAGES.length <= 1) return;
+    STAGES.splice(parseInt(b.dataset.del, 10), 1); openEdit();
+  });
+  $("longLenInput").value = longBreakMin;
+  $("editOverlay").classList.add("open");
+}
+
+function saveEdit() {
+  const next = STAGES.map(s => ({ ...s }));
+  $("stageList").querySelectorAll("input.num").forEach(inp => {
+    const v = Math.max(1, parseInt(inp.value, 10) || 1);
+    next[parseInt(inp.dataset.i, 10)][inp.dataset.k] = v;
+  });
+  STAGES = next;
+  longBreakMin = Math.max(1, parseInt($("longLenInput").value, 10) || longBreakMin);
+  state.stageIndex = Math.min(state.stageIndex, STAGES.length - 1);
+  settings.startStage = Math.min(settings.startStage, STAGES.length - 1);
+  if (state.phase === "focus" && !state.running) setPhase("focus", STAGES[state.stageIndex].f * 60);
+  buildLadder(); fillStartStage(); save(); render();
+  $("editOverlay").classList.remove("open");
+}
+
+function fillStartStage() {
+  const sel = $("startStage"); sel.innerHTML = "";
+  STAGES.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.f + "/" + s.b; sel.appendChild(o); });
+  sel.value = Math.min(settings.startStage, STAGES.length - 1);
+}
+
+/* ============================================================
+   10) EVENTS + START
+   ============================================================ */
+/* ============================================================
+   SYNC  ·  Supabase, geräteübergreifend, nur für dich
+   Prinzip: die vier localStorage-Schlüssel werden als ein
+   JSON-Blob in eine Supabase-Tabelle geschrieben (Push) und
+   beim Öffnen/Fokus wieder geladen (Pull). Der "Sync-Code"
+   ist der geheime Schlüssel der Zeile. Die Zugangsdaten liegen
+   LOKAL pro Gerät (pp2_sync_cfg) und werden NICHT mitsynchronisiert.
+   ============================================================ */
+const SYNC_TABLE = "pomodoro_sync";
+let syncCfg = null;      // { url, key, code }
+let syncReady = false;   // erst true nach initialem Pull + init (verhindert Push während des Ladens)
+let pushTimer = null;
+let pulling = false;
+
+function loadSyncCfg() {
+  try { syncCfg = JSON.parse(localStorage.getItem("pp2_sync_cfg")); } catch (e) { syncCfg = null; }
+  return syncConfigured();
+}
+function syncConfigured() { return !!(syncCfg && syncCfg.url && syncCfg.key && syncCfg.code); }
+
+function setSyncStatus(kind, text) {
+  const dot = $("syncDot"); if (!dot) return;
+  dot.className = "syncdot " + kind;
+  if (text) $("syncTxt").textContent = text;
+}
+function syncBase() { return syncCfg.url.replace(/\/+$/, "") + "/rest/v1/" + SYNC_TABLE; }
+function syncHeaders() {
+  return { "apikey": syncCfg.key, "Authorization": "Bearer " + syncCfg.key, "Content-Type": "application/json" };
+}
+
+/* Blob holen und in localStorage schreiben. Muss VOR init() laufen. */
+async function syncPull() {
+  if (!syncConfigured()) return { ok: false };
+  pulling = true;
+  try {
+    const url = syncBase() + "?id=eq." + encodeURIComponent(syncCfg.code) + "&select=data,updated_at";
+    const r = await fetch(url, { headers: syncHeaders() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    pulling = false;
+    if (rows && rows[0] && rows[0].data) {
+      const blob = rows[0].data;
+      for (const k of Object.values(KEYS)) if (blob[k] != null) localStorage.setItem(k, blob[k]);
+      localStorage.setItem("pp2_sync_ts", rows[0].updated_at || "");
+      return { ok: true, changed: true };
+    }
+    return { ok: true, changed: false };
+  } catch (e) {
+    pulling = false; setSyncStatus("err", "Fehler"); return { ok: false, error: e };
+  }
+}
+
+/* Alle vier Schlüssel einsammeln und hochladen (Upsert auf id). */
+async function syncPush() {
+  if (!syncConfigured()) return;
+  try {
+    setSyncStatus("sync", "Sichere...");
+    const blob = {}; for (const k of Object.values(KEYS)) blob[k] = localStorage.getItem(k);
+    const body = [{ id: syncCfg.code, data: blob, updated_at: new Date().toISOString() }];
+    const r = await fetch(syncBase() + "?on_conflict=id", {
+      method: "POST",
+      headers: Object.assign(syncHeaders(), { "Prefer": "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    localStorage.setItem("pp2_sync_ts", body[0].updated_at);
+    setSyncStatus("ok", "Synced");
+  } catch (e) { setSyncStatus("err", "Fehler"); }
+}
+
+/* Push entprellt: erst 1,5 s nach der letzten Änderung, damit nicht
+   bei jedem Tick hochgeladen wird. */
+function schedulePush() {
+  if (!syncReady || !syncConfigured()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => { pushTimer = null; syncPush(); }, 1500);
+}
+
+/* Letzter Rettungs-Push beim Schließen des Tabs (best effort). */
+function flushPush() {
+  if (!syncReady || !syncConfigured()) return;
+  try {
+    const blob = {}; for (const k of Object.values(KEYS)) blob[k] = localStorage.getItem(k);
+    const body = [{ id: syncCfg.code, data: blob, updated_at: new Date().toISOString() }];
+    fetch(syncBase() + "?on_conflict=id", {
+      method: "POST", keepalive: true,
+      headers: Object.assign(syncHeaders(), { "Prefer": "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify(body),
+    });
+  } catch (e) {}
+}
+
+/* Nach einem Pull die frisch geladenen Daten in die laufende App bringen. */
+function refreshUIFromStorage() {
+  load();
+  fillStartStage();
+  $("autoChk").checked = settings.auto;
+  $("climbChk").checked = settings.autoClimb;
+  $("soundChk").checked = settings.sound;
+  $("dailyGoalInput").value = settings.dailyGoalMin;
+  $("longGoalInput").value = settings.longBreakGoalMin;
+  $("dayEndInput").value = settings.dayEndTime;
+  buildLadder();
+  render();
+}
+
+/* Beim Zurückwechseln auf dieses Gerät den neuesten Stand holen. */
+async function onFocusPull() {
+  if (!syncReady || !syncConfigured() || pulling) return;
+  if (pushTimer) return;   // lokale, noch nicht hochgeladene Änderungen haben Vorrang
+  const prev = localStorage.getItem("pp2_sync_ts");
+  setSyncStatus("sync", "Prüfe...");
+  const res = await syncPull();
+  if (res.ok) {
+    const now = localStorage.getItem("pp2_sync_ts");
+    if (res.changed && now !== prev) refreshUIFromStorage();
+    setSyncStatus("ok", "Synced");
+  }
+}
+
+/* Sync-Modal */
+function openSync() {
+  $("syncUrl").value = (syncCfg && syncCfg.url) || "";
+  $("syncKey").value = (syncCfg && syncCfg.key) || "";
+  $("syncCode").value = (syncCfg && syncCfg.code) || "";
+  $("syncMsg").textContent = "";
+  $("syncOverlay").classList.add("open");
+}
+async function saveSyncCfg() {
+  const url = $("syncUrl").value.trim();
+  const key = $("syncKey").value.trim();
+  const code = $("syncCode").value.trim();
+  if (!url || !key || !code) { $("syncMsg").textContent = "Bitte alle drei Felder ausfüllen."; return; }
+  syncCfg = { url, key, code };
+  localStorage.setItem("pp2_sync_cfg", JSON.stringify(syncCfg));
+  syncReady = true;
+  $("syncMsg").textContent = "Verbinde...";
+  setSyncStatus("sync", "Verbinde...");
+  const res = await syncPull();
+  if (!res.ok) { $("syncMsg").textContent = "Verbindung fehlgeschlagen — URL, Key und Tabelle prüfen."; setSyncStatus("err", "Fehler"); return; }
+  if (res.changed) { refreshUIFromStorage(); $("syncMsg").textContent = "Verbunden. Daten von einem anderen Gerät geladen."; }
+  else { await syncPush(); $("syncMsg").textContent = "Verbunden. Dieses Gerät ist jetzt die Quelle."; }
+  setSyncStatus("ok", "Synced");
+  attachSyncListeners();
+  setTimeout(() => $("syncOverlay").classList.remove("open"), 1000);
+}
+function turnSyncOff() {
+  syncCfg = null;
+  localStorage.removeItem("pp2_sync_cfg");
+  localStorage.removeItem("pp2_sync_ts");
+  setSyncStatus("off", "Sync aus");
+  $("syncOverlay").classList.remove("open");
+}
+
+let syncListenersAttached = false;
+function attachSyncListeners() {
+  if (syncListenersAttached || !syncConfigured()) return;
+  syncListenersAttached = true;
+  window.addEventListener("focus", onFocusPull);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onFocusPull(); });
+  window.addEventListener("beforeunload", flushPush);
+}
+
+function init() {
+  load();
+  fillStartStage();
+
+  $("autoChk").checked = settings.auto;
+  $("climbChk").checked = settings.autoClimb;
+  $("soundChk").checked = settings.sound;
+  $("notifChk").checked = settings.notify && ("Notification" in window) && Notification.permission === "granted";
+  $("dailyGoalInput").value = settings.dailyGoalMin;
+  $("longGoalInput").value = settings.longBreakGoalMin;
+  $("dayEndInput").value = settings.dayEndTime;
+
+  $("startBtn").onclick = toggleRun;
+  $("rewindBtn").onclick = rewind;
+  $("skipBtn").onclick = () => transition(false);
+  $("resetBtn").onclick = resetTimer;
+  $("editBtn").onclick = openEdit;
+  $("histStat").onclick = openHist;
+  $("widgetBtn").onclick = () => {
+    const url = location.href.replace("progressive-pomodoro.html", "pomodoro-widget.html");
+    navigator.clipboard.writeText(url).then(() => {
+      $("widgetBtn").textContent = "URL kopiert!";
+      setTimeout(() => { $("widgetBtn").textContent = "Widget \u2707"; }, 2000);
+    });
+  };
+
+  $("startStage").onchange = (e) => {
+    settings.startStage = parseInt(e.target.value, 10);
+    if (!state.running && state.phase === "focus") { state.stageIndex = settings.startStage; setPhase("focus", STAGES[state.stageIndex].f * 60); }
+    save(); render();
+  };
+  $("autoChk").onchange = (e) => { settings.auto = e.target.checked; save(); };
+  $("climbChk").onchange = (e) => { settings.autoClimb = e.target.checked; save(); render(); };
+  $("soundChk").onchange = (e) => { settings.sound = e.target.checked; save(); };
+  $("notifChk").onchange = async (e) => {
+    if (e.target.checked) {
+      if (!("Notification" in window)) { e.target.checked = false; alert("Dein Browser unterstützt keine Benachrichtigungen."); return; }
+      const p = await Notification.requestPermission(); if (p !== "granted") e.target.checked = false;
+    }
+    settings.notify = e.target.checked; save();
+  };
+  $("dailyGoalInput").onchange = (e) => { settings.dailyGoalMin = Math.max(0, parseInt(e.target.value, 10) || 0); save(); render(); };
+  $("longGoalInput").onchange = (e) => { settings.longBreakGoalMin = Math.max(0, parseInt(e.target.value, 10) || 0); state.longArmed = false; save(); render(); };
+  $("dayEndInput").onchange = (e) => { settings.dayEndTime = e.target.value || "22:00"; save(); render(); };
+
+  // Modals
+  $("histClose").onclick = () => $("histOverlay").classList.remove("open");
+  $("editClose").onclick = () => $("editOverlay").classList.remove("open");
+  $("editCancel").onclick = () => $("editOverlay").classList.remove("open");
+  $("editSave").onclick = saveEdit;
+  $("addStageBtn").onclick = () => { const last = STAGES[STAGES.length - 1]; STAGES.push({ f: last.f, b: last.b }); openEdit(); };
+  $("wipeBtn").onclick = () => { if (confirm("Wirklich alle Statistiken löschen?")) { stats = { days: {} }; save(); render(); openHist(); } };
+  [$("histOverlay"), $("editOverlay")].forEach(o => o.addEventListener("click", (e) => { if (e.target === o) o.classList.remove("open"); }));
+
+  // Sync
+  $("syncPill").onclick = openSync;
+  $("syncClose").onclick = () => $("syncOverlay").classList.remove("open");
+  $("syncSave").onclick = saveSyncCfg;
+  $("syncOff").onclick = turnSyncOff;
+  $("syncOverlay").addEventListener("click", (e) => { if (e.target === $("syncOverlay")) $("syncOverlay").classList.remove("open"); });
+
+  // Tastatur
+  document.addEventListener("keydown", (e) => {
+    if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+    if (document.querySelector(".overlay.open")) return;
+    if (e.code === "Space") { e.preventDefault(); toggleRun(); }
+    else if (e.key === "s" || e.key === "S") transition(false);
+    else if (e.key === "r" || e.key === "R") rewind();
+    else if (e.key === "+") changeStage(1);
+    else if (e.key === "-") changeStage(-1);
+  });
+
+  buildLadder();
+  render();
+}
+
+/* Bootstrap: falls Sync eingerichtet ist, ERST Daten aus der Cloud
+   holen und dann die App starten (sonst liest init() alte Daten). */
+async function bootstrap() {
+  if (loadSyncCfg()) {
+    setSyncStatus("sync", "Verbinde...");
+    await syncPull();
+  }
+  init();
+  syncReady = true;
+  if (syncConfigured()) {
+    setSyncStatus("ok", "Synced");
+    attachSyncListeners();
+  }
+}
+bootstrap();
+</script>
+</body>
+</html>
