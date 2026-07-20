@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -55,7 +55,7 @@
 
   .app { width: 100%; max-width: 540px; position: relative; z-index: 1; }
 
-  /* ---------- Stufen-Treppe ---------- */
+  /* ---------- Stage ladder ---------- */
   .ladder {
     display: flex;
     align-items: flex-end;
@@ -230,37 +230,37 @@
 
 <div class="app">
 
-  <div class="ladder" id="ladder" role="group" aria-label="Fokus-Stufen"></div>
+  <div class="ladder" id="ladder" role="group" aria-label="Focus stages"></div>
 
   <div class="card" id="card">
-    <div class="phase" id="phase">Fokus</div>
+    <div class="phase" id="phase">Focus</div>
     <div class="clock" id="clock">25:00</div>
-    <div class="next" id="next">Danach: 5 min Pause</div>
+    <div class="next" id="next">Next: 5 min break</div>
     <div class="progress"><div id="bar"></div></div>
 
     <div class="controls">
       <button class="primary" id="startBtn">Start</button>
-      <button id="rewindBtn" title="Aktuelle Session um 1 min zurückdrehen (gegen Slacken)">&minus;1 min</button>
-      <button id="skipBtn" title="Aktuelle Phase beenden (zählt nicht als geschafft)">Skip</button>
-      <button id="resetBtn" title="Timer zurücksetzen (Statistik bleibt)">Reset</button>
+      <button id="rewindBtn" title="Rewind the current session by 1 min">−1 min</button>
+      <button id="skipBtn" title="End the current phase early">Skip</button>
+      <button id="resetBtn" title="Reset the timer (stats kept)">Reset</button>
     </div>
 
     <div class="settings">
-      <label>Startstufe <select id="startStage"></select></label>
-      <label><input type="checkbox" id="autoChk" checked> Auto-Weiterlauf</label>
-      <label><input type="checkbox" id="climbChk" checked> Auto-Aufstieg</label>
-      <label><input type="checkbox" id="soundChk" checked> Ton</label>
-      <label><input type="checkbox" id="notifChk"> Benachrichtigung</label>
-      <button class="ghost" id="editBtn" title="Blöcke und Pausen anpassen">Blöcke &#9881;</button>
-      <button class="ghost" id="widgetBtn" title="Mini-Widget öffnen">Widget &#9707;</button>
-      <span class="syncpill" id="syncPill" title="Geräte-Sync einrichten"><span class="syncdot off" id="syncDot"></span><span id="syncTxt">Sync aus</span></span>
+      <label>Start stage <select id="startStage"></select></label>
+      <label><input type="checkbox" id="autoChk" checked> Auto continue</label>
+      <label><input type="checkbox" id="climbChk" checked> Auto climb</label>
+      <label><input type="checkbox" id="soundChk" checked> Sound</label>
+      <label><input type="checkbox" id="notifChk"> Notification</label>
+      <button class="ghost" id="editBtn" title="Adjust blocks and breaks">Blocks &#9881;</button>
+      <button class="ghost" id="widgetBtn" title="Open mini widget">Widget &#9707;</button>
+      <span class="syncpill" id="syncPill" title="Set up device sync"><span class="syncdot off" id="syncDot"></span><span id="syncTxt">Sync off</span></span>
     </div>
   </div>
 
-  <!-- Tagesziel -->
+  <!-- Daily goal -->
   <div class="goalbox">
     <div class="goalhead">
-      <span class="lbl">Tagesziel
+      <span class="lbl">Daily goal
         <input class="num" type="number" id="dailyGoalInput" min="0" step="5"> min
       </span>
       <span class="val" id="dailyGoalVal">0 / 0 min</span>
@@ -269,11 +269,11 @@
   </div>
 
 
-  <!-- Tageszeit-Tracker -->
+  <!-- Day time tracker -->
   <div class="goalbox" id="dayTimeBox">
     <div class="goalhead">
       <span class="lbl">
-        Tag endet
+        Day ends
         <input type="time" id="dayEndInput" value="22:00" style="font:inherit;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:3px 7px;width:auto;">
       </span>
       <span class="val" id="dayTimeVal"></span>
@@ -282,78 +282,78 @@
     <div id="dayTimeMsg" style="font-size:13px;color:var(--text-muted);margin-top:8px;text-align:center;"></div>
   </div>
 
-  <!-- Lange Pause nach X Fokusminuten -->
+  <!-- Long break after X focus minutes -->
   <div class="goalbox">
     <div class="goalhead">
-      <span class="lbl">Lange Pause nach
-        <input class="num" type="number" id="longGoalInput" min="0" step="5"> min Fokus
+      <span class="lbl">Long break after
+        <input class="num" type="number" id="longGoalInput" min="0" step="5"> min focus
       </span>
       <span class="val" id="longGoalVal"></span>
     </div>
     <div class="gbar small" id="longGbarWrap"><div id="longGbar"></div></div>
   </div>
 
-  <!-- Statistik -->
+  <!-- Stats -->
   <div class="stats">
-    <div class="stat score"><span class="flash" id="ptsFlash"></span><b id="stScore">0</b><span id="stScoreSub">Score heute · 0 Sessions</span></div>
-    <div class="stat"><b id="stHigh">0</b><span>Highscore (bester Tag)</span></div>
-    <div class="stat"><b id="stToday">0min</b><span>Zeit heute</span></div>
-    <div class="stat clickable" id="histStat" title="Verlauf ansehen"><b id="stTotal">0min</b><span>Zeit gesamt &#8250;</span></div>
+    <div class="stat score"><span class="flash" id="ptsFlash"></span><b id="stScore">0</b><span id="stScoreSub">Score today · 0 sessions</span></div>
+    <div class="stat"><b id="stHigh">0</b><span>Highscore (best day)</span></div>
+    <div class="stat"><b id="stToday">0min</b><span>Time today</span></div>
+    <div class="stat clickable" id="histStat" title="View history"><b id="stTotal">0min</b><span>Total time &#8250;</span></div>
   </div>
 
-  <p class="hint"><kbd>Leertaste</kbd> Start/Pause &nbsp;·&nbsp; <kbd>S</kbd> Skip &nbsp;·&nbsp; <kbd>R</kbd> &minus;1 min &nbsp;·&nbsp; <kbd>+</kbd>/<kbd>-</kbd> Stufe</p>
+  <p class="hint"><kbd>Space</kbd> Start/Pause &nbsp;·&nbsp; <kbd>S</kbd> Skip &nbsp;·&nbsp; <kbd>R</kbd> −1 min &nbsp;·&nbsp; <kbd>+</kbd>/<kbd>-</kbd> Stage</p>
 </div>
 
-<!-- Verlaufs-Modal -->
+<!-- History modal -->
 <div class="overlay" id="histOverlay">
   <div class="modal">
-    <button class="close" id="histClose" aria-label="Schließen">&times;</button>
-    <h2>Verlauf</h2>
-    <p class="sub">Produktivität pro Tag</p>
+    <button class="close" id="histClose" aria-label="Close">&times;</button>
+    <h2>History</h2>
+    <p class="sub">Productivity per day</p>
     <div id="histList"></div>
-    <div class="actions"><button class="danger" id="wipeBtn">Alle Statistiken löschen</button></div>
+    <div class="actions"><button class="danger" id="wipeBtn">Clear all stats</button></div>
   </div>
 </div>
 
-<!-- Block-Editor-Modal -->
+<!-- Block editor modal -->
 <div class="overlay" id="editOverlay">
   <div class="modal">
-    <button class="close" id="editClose" aria-label="Schließen">&times;</button>
-    <h2>Blöcke anpassen</h2>
-    <p class="sub">Fokus- und Pausenzeiten pro Stufe (in Minuten)</p>
+    <button class="close" id="editClose" aria-label="Close">&times;</button>
+    <h2>Adjust blocks</h2>
+    <p class="sub">Focus and break times per stage (minutes)</p>
     <div id="stageList"></div>
-    <button id="addStageBtn" class="ghost" style="margin-top:6px;">+ Stufe</button>
-    <div class="row"><span>Lange Pause</span><span><input class="num" type="number" id="longLenInput" min="1" step="1"> min</span></div>
+    <button id="addStageBtn" class="ghost" style="margin-top:6px;">+ Stage</button>
+    <div class="row"><span>Long break</span><span><input class="num" type="number" id="longLenInput" min="1" step="1"> min</span></div>
     <div class="actions">
-      <button id="editCancel">Abbrechen</button>
-      <button class="primary" id="editSave">Speichern</button>
+      <button id="editCancel">Cancel</button>
+      <button class="primary" id="editSave">Save</button>
     </div>
   </div>
 </div>
 
-<!-- Sync-Modal -->
+<!-- Sync modal -->
 <div class="overlay" id="syncOverlay">
   <div class="modal">
-    <button class="close" id="syncClose" aria-label="Schließen">&times;</button>
-    <h2>Geräte-Sync</h2>
-    <p class="sub">Synchronisiert deinen Fortschritt über all deine Geräte via Supabase. Trage auf jedem Gerät dieselben Werte ein.</p>
+    <button class="close" id="syncClose" aria-label="Close">&times;</button>
+    <h2>Device Sync</h2>
+    <p class="sub">Synchronize your progress across all devices via Supabase. Use the same values on each device.</p>
     <div class="fld"><label>Supabase URL</label><input class="txt" id="syncUrl" placeholder="https://xxxx.supabase.co" spellcheck="false"></div>
     <div class="fld"><label>Supabase Key (publishable / anon)</label><input class="txt" id="syncKey" placeholder="sb_publishable_..." spellcheck="false"></div>
-    <div class="fld"><label>Sync-Code (dein geheimes Passwort, überall gleich)</label><input class="txt" id="syncCode" placeholder="z.B. ein-langer-zufalls-code" spellcheck="false"></div>
+    <div class="fld"><label>Sync code (your secret password, same on every device)</label><input class="txt" id="syncCode" placeholder="e.g. a-long-random-code" spellcheck="false"></div>
     <div id="syncMsg" style="font-size:13px;color:var(--text-muted);margin-top:10px;min-height:18px;"></div>
     <div class="actions">
-      <button class="danger" id="syncOff">Sync aus</button>
-      <button class="primary" id="syncSave">Speichern &amp; verbinden</button>
+      <button class="danger" id="syncOff">Sync off</button>
+      <button class="primary" id="syncSave">Save &amp; connect</button>
     </div>
   </div>
 </div>
 
 <script>
 /* ============================================================
-   1) KONFIGURATION  ·  Standardwerte
-   Diese werden von gespeicherten Einstellungen überschrieben,
-   sobald du im Editor etwas änderst.
-   f = Fokusminuten, b = Pausenminuten je Stufe.
+   1) CONFIGURATION  ·  default values
+   These are overwritten by stored settings
+   once you change something in the editor.
+   f = focus minutes, b = break minutes per stage.
    ============================================================ */
 const DEFAULTS = {
   stages: [
@@ -363,36 +363,36 @@ const DEFAULTS = {
     { f: 30, b: 7 },
     { f: 50, b: 10 },
     { f: 70, b: 15 },
-    { f: 120, b: 20 },   // neues Level nach 70
+    { f: 120, b: 20 },   // new level after 70
   ],
   longBreakMin: 25,
   defaultStage: 2,
-  dailyGoalMin: 180,        // Tagesziel in Minuten
-  longBreakGoalMin: 120,    // Fokusminuten bis zur verdienten langen Pause
+  dailyGoalMin: 180,        // daily goal in minutes
+  longBreakGoalMin: 120,    // focus minutes until the long break is earned
 };
 
-const POINTS_EXP = 1.5;      // >1 => längere Sessions lohnen sich überproportional
-const PARTIAL_SHARE = 0.4;   // max. Anteil der vollen Punkte, den man für abgebrochene Zeit bekommt
-const CUT_MIN = 10;          // Rest >= 10 min => Block sofort abcutten + nach langer Pause neu; < 10 min => fertig laufen lassen
-const MIN_PER_DAY = 1440;    // 24h. Ab hier zeigt "Zeit gesamt" Tage an. Frei änderbar.
+const POINTS_EXP = 1.5;      // >1 => longer sessions pay off disproportionately
+const PARTIAL_SHARE = 0.4;   // max fraction of full points you get for aborted time
+const CUT_MIN = 10;          // remaining >= 10 min => cut block now + restart after long break; < 10 min => finish it
+const MIN_PER_DAY = 1440;    // 24h. Above this, "total time" shows days. Change freely.
 
 /* ============================================================
-   2) ZUSTAND, EINSTELLUNGEN, STATISTIK
+   2) STATE, SETTINGS, STATS
    ============================================================ */
-let STAGES = DEFAULTS.stages.map(s => ({ ...s }));   // aktive Stufen (editierbar)
+let STAGES = DEFAULTS.stages.map(s => ({ ...s }));   // active stages (editable)
 let longBreakMin = DEFAULTS.longBreakMin;
 
 let state = {
   stageIndex: DEFAULTS.defaultStage,
   phase: "focus",            // "focus" | "break" | "long"
-  remaining: 0,              // Restsekunden der Phase
-  phaseTotal: 0,             // Gesamtsekunden der Phase (für den Balken)
+  remaining: 0,              // remaining seconds in the phase
+  phaseTotal: 0,             // total seconds in the phase (for the bar)
   running: false,
   endTime: null,             // Ziel-Zeitstempel (ms)
-  focusSinceLong: 0,         // Fokussekunden seit der letzten langen Pause
-  longArmed: false,          // lange Pause wurde verdient (Signal gespielt)
-  longPending: false,        // aktuellen Block noch fertig machen, dann lange Pause
-  blockToRestart: null,      // verworfener Block, der nach langer Pause neu startet
+  focusSinceLong: 0,         // focus seconds since the last long break
+  longArmed: false,          // long break earned (sound played)
+  longPending: false,        // finish current block, then long break
+  blockToRestart: null,      // dropped block to restart after long break
 };
 
 let settings = {
@@ -400,10 +400,10 @@ let settings = {
   auto: true, autoClimb: true, sound: true, notify: false,
   dailyGoalMin: DEFAULTS.dailyGoalMin,
   longBreakGoalMin: DEFAULTS.longBreakGoalMin,
-  dayEndTime: "22:00",   // Tagesende, Format "HH:MM"
+  dayEndTime: "22:00",   // Day end time, format "HH:MM"
 };
 
-/* Statistik komplett aus Tagesdaten abgeleitet -> keine Reset-Bugs.
+/* Stats derived entirely from daily data -> no reset bugs.
    days = { "2026-06-17": { focusSec, points, sessions, goalDone } } */
 let stats = { days: {} };
 
@@ -412,7 +412,7 @@ let lastTick = Date.now();
 const $ = (id) => document.getElementById(id);
 
 /* ============================================================
-   3) SPEICHERN / LADEN
+   3) SAVE / LOAD
    ============================================================ */
 const KEYS = { state: "pp2_state", settings: "pp2_settings", stats: "pp2_stats", stages: "pp2_stages" };
 
@@ -421,7 +421,7 @@ function save() {
   localStorage.setItem(KEYS.settings, JSON.stringify(settings));
   localStorage.setItem(KEYS.stats, JSON.stringify(stats));
   localStorage.setItem(KEYS.stages, JSON.stringify({ STAGES, longBreakMin }));
-  schedulePush();   // bei Änderung entprellt in die Cloud hochladen (falls Sync an)
+  schedulePush();   // debounce changes and upload to the cloud (if sync is enabled)
 }
 
 function load() {
@@ -440,26 +440,26 @@ function load() {
         else { state.remaining = 0; state.running = false; state.endTime = null; transition(true); }
       }
     }
-  } catch (err) { console.warn("Laden fehlgeschlagen:", err); }
+  } catch (err) { console.warn("Load failed:", err); }
   state.stageIndex = Math.min(state.stageIndex, STAGES.length - 1);
   if (state.remaining <= 0 && state.phase === "focus") setPhase("focus", STAGES[state.stageIndex].f * 60);
 }
 
 /* ============================================================
-   4) HILFSFUNKTIONEN
+   4) HELPER FUNCTIONS
    ============================================================ */
 function fmtClock(sec) {
   const m = Math.floor(sec / 60), s = sec % 60;
   return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
-/* Live-Dauer. withDays=true zeigt ab 24h auch Tage. */
+/* Live duration. withDays=true shows days above 24h. */
 function fmtDuration(totalSec, withDays) {
   let m = Math.floor(totalSec / 60);
   if (withDays && m >= MIN_PER_DAY) {
     const d = Math.floor(m / MIN_PER_DAY); m -= d * MIN_PER_DAY;
     const h = Math.floor(m / 60), mm = m % 60;
-    return d + (d === 1 ? " Tag " : " Tage ") + h + "h " + String(mm).padStart(2, "0") + "min";
+    return d + (d === 1 ? " day " : " days ") + h + "h " + String(mm).padStart(2, "0") + "min";
   }
   if (m >= 60) { const h = Math.floor(m / 60), mm = m % 60; return h + "h " + String(mm).padStart(2, "0") + "min"; }
   return m + "min";
@@ -489,12 +489,12 @@ function tone(freq, start, dur, gain) {
 }
 function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (audioCtx && audioCtx.state === "suspended") audioCtx.resume(); }
 
-function beep() { // normaler Phasenwechsel
+function beep() { // normal phase change
   if (!settings.sound) return; ensureAudio(); if (!audioCtx) return;
   const f = state.phase === "focus" ? 660 : 880;
   [0, 0.32].forEach(t => tone(f, t, 0.28, 0.28));
 }
-function fanfare() { // lange Pause / Tagesziel erreicht
+function fanfare() { // long break / daily goal reached
   if (!settings.sound) return; ensureAudio(); if (!audioCtx) return;
   [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.13, 0.22, 0.3));
 }
@@ -505,9 +505,9 @@ function notify(title, body) {
 }
 
 /* ============================================================
-   6) FOKUSZEIT GUTSCHREIBEN / ZURUECKNEHMEN  (Live-Tracking)
-   Es zählt die tatsächlich verstrichene Fokuszeit, nicht die
-   Blocklänge. Deshalb stimmen Ziele auch beim Wechseln der Blöcke.
+   6) COUNT / REMOVE FOCUS TIME  (live tracking)
+   It counts actual focus time elapsed, not block length.
+   This keeps the goals consistent when switching blocks.
    ============================================================ */
 function addFocus(sec) {
   const rec = dayRec();
@@ -515,7 +515,7 @@ function addFocus(sec) {
   state.focusSinceLong += sec;
   // Tagesziel erreicht?
   if (settings.dailyGoalMin > 0 && !rec.goalDone && rec.focusSec >= settings.dailyGoalMin * 60) {
-    rec.goalDone = true; fanfare(); notify("Tagesziel erreicht", settings.dailyGoalMin + " Minuten geschafft.");
+    rec.goalDone = true; fanfare(); notify("Daily goal reached", settings.dailyGoalMin + " minutes done.");
   }
   checkLongBreak();
 }
@@ -525,18 +525,18 @@ function removeFocus(sec) { // für den -1-Button
   state.focusSinceLong = Math.max(0, state.focusSinceLong - sec);
 }
 
-/* Lange Pause verdient? */
+/* Long break earned? */
 function checkLongBreak() {
   if (settings.longBreakGoalMin <= 0 || state.longArmed) return;
   if (state.focusSinceLong < settings.longBreakGoalMin * 60) return;
-  state.longArmed = true; fanfare(); notify("Lange Pause verdient", longBreakMin + " Minuten Erholung freigeschaltet.");
+  state.longArmed = true; fanfare(); notify("Long break earned", longBreakMin + " minutes of rest unlocked.");
   if (state.remaining >= CUT_MIN * 60) {
-    // Noch viel übrig -> Block sofort abcutten, lange Pause jetzt, Block danach frisch neu.
+    // A lot left -> cut the block now, start long break, then restart fresh.
     awardPartial();
     state.blockToRestart = state.stageIndex;
     startLongBreak();
   } else {
-    // Fast fertig (< 10 min) -> Block zu Ende laufen lassen, dann lange Pause.
+    // Almost done (< 10 min) -> finish current block, then long break.
     state.longPending = true;
   }
 }
@@ -578,12 +578,12 @@ function transition(natural) {
     if (natural) awardSession(STAGES[state.stageIndex].f);
     else awardPartial();
     if (state.longPending) { state.longPending = false; startLongBreak(); }
-    else { beep(); setPhase("break", STAGES[state.stageIndex].b * 60); notify("Pause", STAGES[state.stageIndex].b + " min. Kein Handy, kein neuer Input."); }
+    else { beep(); setPhase("break", STAGES[state.stageIndex].b * 60); notify("Break", STAGES[state.stageIndex].b + " min. No phone, no new input."); }
   } else if (state.phase === "long") {
     beep();
     if (state.blockToRestart != null) { state.stageIndex = state.blockToRestart; state.blockToRestart = null; }
     setPhase("focus", STAGES[state.stageIndex].f * 60);
-  } else { // kurze Pause vorbei
+  } else { // short break over
     beep();
     if (settings.autoClimb) state.stageIndex = Math.min(state.stageIndex + 1, STAGES.length - 1);
     setPhase("focus", STAGES[state.stageIndex].f * 60);
@@ -614,8 +614,8 @@ function changeStage(delta) {
   const before = state.stageIndex;
   const next = Math.min(STAGES.length - 1, Math.max(0, before + delta));
   if (next === before) return;
-  // Wechsel während des Fokus: Teilpunkte für den verlassenen Block, dann
-  // neuen Block frisch setzen. Bereits gezählte Fokuszeit bleibt den Zielen erhalten.
+  // Switch during focus: award partial points for the left block,
+  // then set the new block fresh. Already counted focus time stays with goals.
   if (state.phase === "focus") awardPartial();
   state.stageIndex = next;
   if (state.phase === "focus") setPhase("focus", STAGES[next].f * 60);
@@ -632,8 +632,8 @@ function resetTimer() {
   save(); render();
 }
 
-/* Haupt-Tick: 4x/Sekunde. Restzeit aus Zeitstempel -> bleibt korrekt,
-   auch wenn der Tab im Hintergrund gedrosselt wird. */
+/* Main tick: 4x/second. Remaining time comes from the timestamp -> stays accurate,
+   even if the tab is throttled in the background. */
 setInterval(() => {
   const now = Date.now();
   const delta = (now - lastTick) / 1000; lastTick = now;
@@ -665,10 +665,10 @@ function buildLadder() {
   STAGES.forEach((s, i) => {
     const el = document.createElement("button");
     el.className = "step";
-    el.style.height = Math.round(26 + Math.sqrt(s.f / maxF) * 48) + "px"; // sqrt: kleine Stufen bleiben sichtbar
+    el.style.height = Math.round(26 + Math.sqrt(s.f / maxF) * 48) + "px"; // sqrt: keeps small stages visible
     el.innerHTML = "<span>" + s.f + "</span>";
-    el.title = s.f + " min Fokus / " + s.b + " min Pause";
-    el.setAttribute("aria-label", "Stufe " + (i + 1) + ": " + s.f + " Minuten Fokus");
+    el.title = s.f + " min focus / " + s.b + " min break";
+    el.setAttribute("aria-label", "Stage " + (i + 1) + ": " + s.f + " minutes focus");
     el.onclick = () => setStage(i);
     ladder.appendChild(el);
   });
@@ -703,7 +703,7 @@ function renderDayTime() {
   // Restzeit als lesbaren String
   const hLeft = Math.floor(minLeft / 60), mLeft = minLeft % 60;
   const restStr = hLeft > 0 ? hLeft + "h " + String(mLeft).padStart(2, "0") + "min" : mLeft + "min";
-  $("dayTimeVal").textContent = pastEnd ? "Tag beendet" : restStr + " noch  (" + dayGonePct + "% rum)";
+  $("dayTimeVal").textContent = pastEnd ? "Day ended" : restStr + " left  (" + dayGonePct + "% done)";
 
   // Erreichbarkeits-Rechnung
   const rec = dayRec();
@@ -714,37 +714,37 @@ function renderDayTime() {
   const bar = $("dayTimeGbarWrap");
 
   if (settings.dailyGoalMin <= 0) {
-    msg.textContent = "Kein Tagesziel gesetzt.";
+    msg.textContent = "No daily goal set.";
     bar.style.setProperty("--gbar-color", "var(--accent)");
     return;
   }
   if (rec.goalDone) {
-    msg.textContent = "Tagesziel erreicht! " + (pastEnd ? "" : restStr + " Puffer.");
+    msg.textContent = "Daily goal reached! " + (pastEnd ? "" : restStr + " buffer.");
     bar.style.setProperty("--gbar-color", "#3fc99a");
     return;
   }
   if (pastEnd) {
-    msg.textContent = "Tag vorbei — Ziel nicht erreicht (" + missingMin + " min gefehlt).";
+    msg.textContent = "Day over — goal not reached (" + missingMin + " min missing).";
     bar.style.setProperty("--gbar-color", "#e24b4a");
     return;
   }
 
-  // Noch machbar? Annahme: Fokus-Effizienz ~70% der Restzeit
-  // (der Rest geht für Pausen drauf)
+  // Still achievable? Assumes focus efficiency ~70% of remaining time
+  // (the rest goes to breaks)
   const achievableFocusMin = Math.floor(minLeft * 0.7);
   const reachable = achievableFocusMin >= missingMin;
 
   if (reachable) {
     // Wann muss man spätestens fertig sein?
-    // missingMin nötige Fokusmin, davon 70% der Restzeit -> benötigte Restzeit = missingMin / 0.7
+    // missingMin focus minutes required; with 70% of remaining time available -> needed time = missingMin / 0.7
     const neededMin = Math.ceil(missingMin / 0.7);
     const deadline = new Date(end.getTime() - neededMin * 60 * 1000);
     const dh = deadline.getHours(), dm = deadline.getMinutes();
     const deadStr = String(dh).padStart(2, "0") + ":" + String(dm).padStart(2, "0");
-    msg.textContent = "Noch " + missingMin + " min nötig · spätestens bis " + deadStr + " Uhr starten.";
+    msg.textContent = "Still need " + missingMin + " min · start by " + deadStr + ".";
     bar.style.setProperty("--gbar-color", "var(--accent)");
   } else {
-    msg.textContent = "Ziel heute nicht mehr erreichbar (" + missingMin + " min fehlen, nur ~" + achievableFocusMin + " min realistisch).";
+    msg.textContent = "Goal not reachable today (" + missingMin + " min missing, only ~" + achievableFocusMin + " min realistic).";
     bar.style.setProperty("--gbar-color", "#e24b4a");
   }
 }
@@ -759,20 +759,20 @@ function render() {
   });
 
   // Timer
-  const labels = { focus: "Fokus · Stufe " + (state.stageIndex + 1), break: "Pause", long: "Lange Pause" };
+  const labels = { focus: "Focus · Stage " + (state.stageIndex + 1), break: "Break", long: "Long break" };
   $("phase").textContent = labels[state.phase];
   $("clock").textContent = fmtClock(state.remaining);
   $("bar").style.width = (state.phaseTotal > 0 ? Math.round((1 - state.remaining / state.phaseTotal) * 100) : 0) + "%";
 
   if (state.phase === "focus") {
-    if (state.longPending) $("next").textContent = "Danach: lange Pause (" + longBreakMin + " min)";
-    else $("next").textContent = "Danach: " + STAGES[state.stageIndex].b + " min Pause";
+    if (state.longPending) $("next").textContent = "Next: long break (" + longBreakMin + " min)";
+    else $("next").textContent = "Next: " + STAGES[state.stageIndex].b + " min break";
   } else if (state.phase === "long") {
     const nx = state.blockToRestart != null ? state.blockToRestart : state.stageIndex;
-    $("next").textContent = "Danach: " + STAGES[nx].f + " min Fokus";
+    $("next").textContent = "Next: " + STAGES[nx].f + " min focus";
   } else {
     const nx = settings.autoClimb ? Math.min(state.stageIndex + 1, STAGES.length - 1) : state.stageIndex;
-    $("next").textContent = "Danach: " + STAGES[nx].f + " min Fokus (Stufe " + (nx + 1) + ")";
+    $("next").textContent = "Next: " + STAGES[nx].f + " min focus (Stage " + (nx + 1) + ")";
   }
   $("startBtn").textContent = state.running ? "Pause" : "Start";
   $("rewindBtn").disabled = state.phase !== "focus";
@@ -786,17 +786,17 @@ function render() {
   $("dailyGbarWrap").classList.toggle("full", dPct >= 100);
   $("dailyGoalVal").textContent = fmtDuration(rec.focusSec, false) + " / " + settings.dailyGoalMin + "min  (" + Math.round(dPct) + "%)" + (rec.goalDone ? "  \u2713" : "");
 
-  // Lange Pause
+  // Long break progress
   const lSec = settings.longBreakGoalMin * 60;
   const lPct = lSec > 0 ? Math.min(100, (state.focusSinceLong / lSec) * 100) : 0;
   $("longGbar").style.width = lPct + "%";
-  if (settings.longBreakGoalMin <= 0) $("longGoalVal").textContent = "aus";
-  else if (state.longArmed) $("longGoalVal").textContent = "verdient \u2713";
-  else $("longGoalVal").textContent = "noch " + Math.ceil((lSec - state.focusSinceLong) / 60) + " min";
+  if (settings.longBreakGoalMin <= 0) $("longGoalVal").textContent = "off";
+  else if (state.longArmed) $("longGoalVal").textContent = "earned \u2713";
+  else $("longGoalVal").textContent = "still " + Math.ceil((lSec - state.focusSinceLong) / 60) + " min";
 
   // Statistik
   $("stScore").textContent = rec.points;
-  $("stScoreSub").textContent = "Score heute · " + rec.sessions + (rec.sessions === 1 ? " Session" : " Sessions");
+  $("stScoreSub").textContent = "Score today · " + rec.sessions + (rec.sessions === 1 ? " session" : " sessions");
   $("stHigh").textContent = highscore();
   $("stToday").textContent = fmtDuration(rec.focusSec, false);
   $("stTotal").innerHTML = fmtDuration(totalFocusSec(), true) + " <span style='color:var(--text-muted)'>&#8250;</span>";
@@ -806,12 +806,12 @@ function render() {
 }
 
 /* ============================================================
-   9) VERLAUF + BLOCK-EDITOR (Modals)
+   9) HISTORY + BLOCK EDITOR (modals)
    ============================================================ */
 function openHist() {
   const list = $("histList"); list.innerHTML = "";
   const keys = Object.keys(stats.days).sort().reverse();
-  if (!keys.length) { list.innerHTML = "<p class='sub'>Noch keine Daten.</p>"; }
+  if (!keys.length) { list.innerHTML = "<p class='sub'>No data yet.</p>"; }
   const maxSec = Math.max(1, ...keys.map(k => stats.days[k].focusSec));
   keys.forEach(k => {
     const d = stats.days[k];
@@ -831,8 +831,8 @@ function openEdit() {
     const row = document.createElement("div"); row.className = "stagerow";
     row.innerHTML =
       "<span class='idx'>" + (i + 1) + "</span>" +
-      "<input class='num' type='number' min='1' value='" + s.f + "' data-i='" + i + "' data-k='f'> Fokus" +
-      "<input class='num' type='number' min='1' value='" + s.b + "' data-i='" + i + "' data-k='b'> Pause" +
+      "<input class='num' type='number' min='1' value='" + s.f + "' data-i='" + i + "' data-k='f'> Focus" +
+      "<input class='num' type='number' min='1' value='" + s.b + "' data-i='" + i + "' data-k='b'> Break" +
       "<button class='x' data-del='" + i + "'>&times;</button>";
     list.appendChild(row);
   });
@@ -869,12 +869,11 @@ function fillStartStage() {
    10) EVENTS + START
    ============================================================ */
 /* ============================================================
-   SYNC  ·  Supabase, geräteübergreifend, nur für dich
-   Prinzip: die vier localStorage-Schlüssel werden als ein
-   JSON-Blob in eine Supabase-Tabelle geschrieben (Push) und
-   beim Öffnen/Fokus wieder geladen (Pull). Der "Sync-Code"
-   ist der geheime Schlüssel der Zeile. Die Zugangsdaten liegen
-   LOKAL pro Gerät (pp2_sync_cfg) und werden NICHT mitsynchronisiert.
+   SYNC  ·  Supabase, cross-device, for yourself only
+   Principle: the four localStorage keys are written as one
+   JSON blob into a Supabase table (push) and loaded back on
+   open/focus (pull). The "Sync code" is the secret row key.
+   Credentials stay LOCAL per device (pp2_sync_cfg) and are NOT synced.
    ============================================================ */
 const SYNC_TABLE = "pomodoro_sync";
 let syncCfg = null;      // { url, key, code }
@@ -920,7 +919,7 @@ async function syncPull() {
   }
 }
 
-/* Alle vier Schlüssel einsammeln und hochladen (Upsert auf id). */
+/* Collect all four keys and upload them (upsert by id). */
 async function syncPush() {
   if (!syncConfigured()) return;
   try {
@@ -938,8 +937,7 @@ async function syncPush() {
   } catch (e) { setSyncStatus("err", "Fehler"); }
 }
 
-/* Push entprellt: erst 1,5 s nach der letzten Änderung, damit nicht
-   bei jedem Tick hochgeladen wird. */
+/* Debounce push: wait 1.5 s after the last change so we don't upload on every tick. */
 function schedulePush() {
   if (!syncReady || !syncConfigured()) return;
   clearTimeout(pushTimer);
@@ -960,7 +958,7 @@ function flushPush() {
   } catch (e) {}
 }
 
-/* Nach einem Pull die frisch geladenen Daten in die laufende App bringen. */
+/* After a pull, bring the freshly loaded data into the running app. */
 function refreshUIFromStorage() {
   load();
   fillStartStage();
@@ -974,12 +972,12 @@ function refreshUIFromStorage() {
   render();
 }
 
-/* Beim Zurückwechseln auf dieses Gerät den neuesten Stand holen. */
+/* When switching back to this device, pull the latest state. */
 async function onFocusPull() {
   if (!syncReady || !syncConfigured() || pulling) return;
-  if (pushTimer) return;   // lokale, noch nicht hochgeladene Änderungen haben Vorrang
+  if (pushTimer) return;   // local unsynced changes take priority
   const prev = localStorage.getItem("pp2_sync_ts");
-  setSyncStatus("sync", "Prüfe...");
+  setSyncStatus("sync", "Checking...");
   const res = await syncPull();
   if (res.ok) {
     const now = localStorage.getItem("pp2_sync_ts");
@@ -988,7 +986,7 @@ async function onFocusPull() {
   }
 }
 
-/* Sync-Modal */
+/* Sync modal */
 function openSync() {
   $("syncUrl").value = (syncCfg && syncCfg.url) || "";
   $("syncKey").value = (syncCfg && syncCfg.key) || "";
@@ -1000,16 +998,16 @@ async function saveSyncCfg() {
   const url = $("syncUrl").value.trim();
   const key = $("syncKey").value.trim();
   const code = $("syncCode").value.trim();
-  if (!url || !key || !code) { $("syncMsg").textContent = "Bitte alle drei Felder ausfüllen."; return; }
+  if (!url || !key || !code) { $("syncMsg").textContent = "Please fill all three fields."; return; }
   syncCfg = { url, key, code };
   localStorage.setItem("pp2_sync_cfg", JSON.stringify(syncCfg));
   syncReady = true;
-  $("syncMsg").textContent = "Verbinde...";
-  setSyncStatus("sync", "Verbinde...");
+  $("syncMsg").textContent = "Connecting...";
+  setSyncStatus("sync", "Connecting...");
   const res = await syncPull();
-  if (!res.ok) { $("syncMsg").textContent = "Verbindung fehlgeschlagen — URL, Key und Tabelle prüfen."; setSyncStatus("err", "Fehler"); return; }
-  if (res.changed) { refreshUIFromStorage(); $("syncMsg").textContent = "Verbunden. Daten von einem anderen Gerät geladen."; }
-  else { await syncPush(); $("syncMsg").textContent = "Verbunden. Dieses Gerät ist jetzt die Quelle."; }
+  if (!res.ok) { $("syncMsg").textContent = "Connection failed — check URL, key, and table."; setSyncStatus("err", "Error"); return; }
+  if (res.changed) { refreshUIFromStorage(); $("syncMsg").textContent = "Connected. Data loaded from another device."; }
+  else { await syncPush(); $("syncMsg").textContent = "Connected. This device is now the source."; }
   setSyncStatus("ok", "Synced");
   attachSyncListeners();
   setTimeout(() => $("syncOverlay").classList.remove("open"), 1000);
@@ -1018,7 +1016,7 @@ function turnSyncOff() {
   syncCfg = null;
   localStorage.removeItem("pp2_sync_cfg");
   localStorage.removeItem("pp2_sync_ts");
-  setSyncStatus("off", "Sync aus");
+  setSyncStatus("off", "Sync off");
   $("syncOverlay").classList.remove("open");
 }
 
@@ -1052,7 +1050,7 @@ function init() {
   $("widgetBtn").onclick = () => {
     const url = location.href.replace("progressive-pomodoro.html", "pomodoro-widget.html");
     navigator.clipboard.writeText(url).then(() => {
-      $("widgetBtn").textContent = "URL kopiert!";
+      $("widgetBtn").textContent = "URL copied!";
       setTimeout(() => { $("widgetBtn").textContent = "Widget \u2707"; }, 2000);
     });
   };
@@ -1067,7 +1065,7 @@ function init() {
   $("soundChk").onchange = (e) => { settings.sound = e.target.checked; save(); };
   $("notifChk").onchange = async (e) => {
     if (e.target.checked) {
-      if (!("Notification" in window)) { e.target.checked = false; alert("Dein Browser unterstützt keine Benachrichtigungen."); return; }
+      if (!("Notification" in window)) { e.target.checked = false; alert("Your browser does not support notifications."); return; }
       const p = await Notification.requestPermission(); if (p !== "granted") e.target.checked = false;
     }
     settings.notify = e.target.checked; save();
@@ -1082,7 +1080,7 @@ function init() {
   $("editCancel").onclick = () => $("editOverlay").classList.remove("open");
   $("editSave").onclick = saveEdit;
   $("addStageBtn").onclick = () => { const last = STAGES[STAGES.length - 1]; STAGES.push({ f: last.f, b: last.b }); openEdit(); };
-  $("wipeBtn").onclick = () => { if (confirm("Wirklich alle Statistiken löschen?")) { stats = { days: {} }; save(); render(); openHist(); } };
+  $("wipeBtn").onclick = () => { if (confirm("Really clear all statistics?")) { stats = { days: {} }; save(); render(); openHist(); } };
   [$("histOverlay"), $("editOverlay")].forEach(o => o.addEventListener("click", (e) => { if (e.target === o) o.classList.remove("open"); }));
 
   // Sync
@@ -1107,11 +1105,11 @@ function init() {
   render();
 }
 
-/* Bootstrap: falls Sync eingerichtet ist, ERST Daten aus der Cloud
-   holen und dann die App starten (sonst liest init() alte Daten). */
+/* Bootstrap: if sync is configured, first pull data from the cloud
+   and then start the app (otherwise init() would read stale data). */
 async function bootstrap() {
   if (loadSyncCfg()) {
-    setSyncStatus("sync", "Verbinde...");
+    setSyncStatus("sync", "Connecting...");
     await syncPull();
   }
   init();

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Pomodoro Widget</title>
@@ -21,7 +21,7 @@
     cursor: default;
   }
 
-  /* Drag-Handle: ueberall ziehbar */
+  /* Drag handle: draggable everywhere */
   body { -webkit-app-region: drag; }
   button { -webkit-app-region: no-drag; }
 
@@ -46,7 +46,7 @@
 
   .offline { font-size: 12px; color: #555; }
 
-  /* Schliessen-Button oben rechts */
+  /* Close button top right */
   .close-btn {
     position: absolute; top: 6px; right: 8px;
     background: none; border: none; color: #444; font-size: 14px;
@@ -58,20 +58,20 @@
 </head>
 <body>
 
-<button class="close-btn" id="closeBtn" title="Widget schliessen">&times;</button>
+<button class="close-btn" id="closeBtn" title="Close widget">&times;</button>
 
 <div class="inner">
-  <div class="phase" id="phase">Warte...</div>
+  <div class="phase" id="phase">Waiting...</div>
   <div class="clock" id="clock">--:--</div>
   <div class="bar-wrap"><div class="bar" id="bar"></div></div>
 </div>
 
 <script>
 /* ============================================================
-   Widget liest denselben localStorage-Key wie die Hauptapp
-   (pp2_state) und berechnet die Restzeit live aus dem
-   endTime-Zeitstempel — exakt dieselbe Logik wie die Hauptapp.
-   Kein Netzwerk, keine Verbindung noetig, nur der Browser-Speicher.
+   Widget reads the same localStorage key as the main app
+   (pp2_state) and computes remaining time live from the
+   endTime timestamp — exactly the same logic as the main app.
+   No network, no connection needed, only browser storage.
    ============================================================ */
 
 const ACCENTS = {
@@ -79,7 +79,7 @@ const ACCENTS = {
   break: ["#9d5ce0", "#e060b0"],
   long:  ["#ec4899", "#a855f7"],
 };
-const LABELS = { focus: "Fokus", break: "Pause", long: "Lange Pause" };
+const LABELS = { focus: "Focus", break: "Break", long: "Long break" };
 
 function fmt(sec) {
   const m = Math.floor(Math.max(0, sec) / 60);
@@ -92,7 +92,7 @@ function tick() {
   try { raw = localStorage.getItem("pp2_state"); } catch(e) {}
 
   if (!raw) {
-    document.getElementById("phase").textContent = "App nicht offen";
+    document.getElementById("phase").textContent = "App not open";
     document.getElementById("clock").textContent = "--:--";
     document.getElementById("bar").style.width = "0%";
     return;
@@ -113,7 +113,7 @@ function tick() {
   const pct = s.phaseTotal > 0 ? Math.min(100, Math.round((1 - remaining / s.phaseTotal) * 100)) : 0;
 
   document.getElementById("phase").textContent =
-    (s.running ? "" : "\u23F8 ") + (LABELS[s.phase] || "Fokus");
+    (s.running ? "" : "\u23F8 ") + (LABELS[s.phase] || "Focus");
   document.getElementById("clock").textContent = fmt(remaining);
   document.getElementById("bar").style.width = pct + "%";
   document.title = fmt(remaining);
