@@ -274,7 +274,9 @@
   .trackrow:last-of-type { border-bottom:none; }
   .trackinfo { display:flex; flex-direction:column; gap:2px; }
   .trackname { font-size:14px; font-weight:600; }
-  .trackex { font-size:13.5px; color:var(--text-muted); }
+  .trackex { font-size:14.5px; color:var(--text); }
+  .trackex b { background:linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   .tclear { display:flex; align-items:center; gap:6px; }
   .tclear-q { font-size:12.5px; color:var(--text-muted); }
   .tyn { font:inherit; font-size:13px; padding:5px 12px; border-radius:8px; cursor:pointer;

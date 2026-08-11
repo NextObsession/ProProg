@@ -225,6 +225,25 @@ function toggleStage() {
   renderTraining();
 }
 
+/* Misclick repair tools */
+function resetWeek() {
+  if (typeof confirm === "function" &&
+      !confirm("Reset this week's sessions (done/failed) and the level-up counter?\nTrack levels and clean clears stay untouched.")) return;
+  T.week = freshWeek(T.week.key);
+  uiSession = null; uiClears = {};
+  saveT();
+  renderTraining();
+}
+let uiEditLevels = false;
+function toggleEditLevels() { uiEditLevels = !uiEditLevels; renderTraining(); }
+function adjLevel(tk, delta) {
+  const t = T.tracks[tk];
+  t.level = Math.min(TRACKS[tk].levels.length, Math.max(1, t.level + delta));
+  t.cleanClears = 0; t.failStreak = 0; t.dropInfo = null;
+  saveT();
+  renderTraining();
+}
+
 /* ---------------- rendering ---------------- */
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -328,7 +347,7 @@ function renderTraining() {
         <div class="trackinfo">
           <span class="trackname">${TRACKS[tk].short} <span class="tlv">LV ${t.level}/${TRACKS[tk].levels.length}</span></span>
           <span class="trackex">${esc(row.ex)} \u2014 <b>${esc(row.target)}</b></span>
-          ${t.cleanClears === 1 ? `<span class="tbadge">1/2 clean clears</span>` : ""}${drop}
+          ${t.cleanClears === 1 ? `<span class="tbadge">1/2 clean clears</span>` : ""}${trackEligible(tk) ? `<span class="tbadge tbadge-ok">2/2 \u2014 level up ready (see Tracks below)</span>` : ""}${drop}
         </div>
         <div class="tclear">
           <span class="tclear-q">Clean clear?</span>
@@ -352,6 +371,7 @@ function renderTraining() {
   html += `<div class="tcard">
     <div class="thead">
       <div><span class="ttitle">Tracks</span> <span class="tlv">level-ups this week ${T.week.levelUpsThisWeek}/2</span></div>
+      <div class="tstreak"><a href="#" onclick="toggleEditLevels();return false;">${uiEditLevels ? "done editing" : "edit levels"}</a></div>
     </div>
     <div class="tgrid">`;
   for (const [tk, def] of Object.entries(TRACKS)) {
@@ -363,7 +383,11 @@ function renderTraining() {
       <div class="tgrid-name">${def.short}</div>
       <div class="tgrid-lv">LV ${t.level}/${max}</div>
       <div class="tgrid-bar"><div style="width:${pct}%"></div></div>
-      ${eligible ? (capReached
+      ${uiEditLevels ? `<div class="tactions" style="margin-top:4px;">
+        <button class="ghost tsm" onclick="adjLevel('${tk}', -1)">\u2212</button>
+        <button class="ghost tsm" onclick="adjLevel('${tk}', 1)">+</button>
+      </div>` : ""}
+      ${!uiEditLevels && eligible ? (capReached
         ? `<button class="ghost tsm" disabled title="Max 2 level-ups per week \u2014 available next week">Level up (cap)</button>`
         : `<button class="primary tsm tglow" onclick="levelUp('${tk}')">Level up \u2191</button>`) : ""}
     </div>`;
@@ -373,6 +397,7 @@ function renderTraining() {
   /* --- status row --- */
   html += `<div class="tstatus">
     <span>Stage ${T.stage} \u00b7 <a href="#" onclick="toggleStage();return false;">switch to Stage ${T.stage === 0 ? 1 : 0}</a></span>
+    <span><a href="#" onclick="resetWeek();return false;">reset week</a></span>
     <span>Deload counter: week ${T.weeksSinceDeload}/8</span>
   </div>`;
 
