@@ -222,12 +222,94 @@
   .modal .fld label { font-size:13px; color:var(--text-muted); display:block; margin-bottom:4px; }
   .modal input.txt { width:100%; font:inherit; background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:7px; padding:8px 10px; }
 
+  /* ---------- Tabs ---------- */
+  .tabbar { display:flex; gap:8px; justify-content:center; padding:14px 0 0; }
+  .tab { font:inherit; font-size:15px; padding:8px 22px; border-radius:10px; border:1px solid var(--border);
+         background:var(--surface); color:var(--text-muted); cursor:pointer; transition:all .25s; }
+  .tab:hover { color:var(--text); }
+  .tab-active { color:var(--text); border-color:transparent;
+    background:linear-gradient(135deg, rgba(58,160,238,.25), rgba(168,85,247,.25));
+    box-shadow:0 0 12px rgba(168,85,247,.25); }
+
+  /* ---------- Training tab ---------- */
+  .tcard { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin:14px 0; }
+  .thead { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .ttitle { font-size:17px; font-weight:600; }
+  .tlv { font-size:13px; color:var(--text-muted); margin-left:6px; }
+  .tstreak { font-size:13px; color:var(--text-muted); }
+  .tlist { list-style:none; margin:0; padding:0; }
+  .tlist li { padding:5px 0; border-bottom:1px solid var(--border); font-size:14.5px; }
+  .tlist li:last-child { border-bottom:none; }
+  .tslot { display:inline-block; min-width:86px; color:var(--text-muted); font-size:12.5px; text-transform:uppercase; letter-spacing:.4px; }
+  .tactions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .tsm { font-size:13.5px; padding:7px 12px; }
+  .tdone-note { margin-top:12px; font-size:14px; color:var(--text-muted); }
+  .tdone-note a { color:var(--text-muted); }
+  .twarn { background:rgba(226,75,74,.12); border:1px solid rgba(226,75,74,.4); color:#f0a1a0;
+           border-radius:10px; padding:10px 14px; margin:14px 0; font-size:14px; }
+  .tbanner { background:rgba(168,85,247,.10); border:1px solid rgba(168,85,247,.35);
+             border-radius:10px; padding:10px 14px; margin:14px 0; font-size:14px;
+             display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .tdeload { justify-content:center; color:#c9a2f0; }
+  .tweekstrip { display:flex; gap:10px; justify-content:center; margin:14px 0; }
+  .tday { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .tday-today .tdayname { color:var(--text); }
+  .tdayname { font-size:11.5px; color:var(--text-muted); }
+  .tdot { width:12px; height:12px; border-radius:50%; }
+  .tdot-ok { background:#3fc99a; box-shadow:0 0 6px rgba(63,201,154,.6); }
+  .tdot-fail { background:#e24b4a; }
+  .tdot-open { background:transparent; border:2px solid var(--accent); }
+  .tdot-future { background:transparent; border:2px solid var(--border); }
+  .tchips { display:flex; gap:8px; flex-wrap:wrap; }
+  .tchip { font:inherit; font-size:13.5px; padding:7px 13px; border-radius:20px; cursor:pointer;
+           border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); transition:all .2s; }
+  .tchip:hover { color:var(--text); }
+  .tchip-next { border-color:var(--accent); color:var(--text); box-shadow:0 0 8px rgba(58,160,238,.35); }
+  .tchip-done { border-color:rgba(63,201,154,.5); color:#3fc99a; }
+  .tchip-failed { border-color:rgba(226,75,74,.5); color:#e24b4a; }
+  .tsession { margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+  .tsession-title { font-size:15px; font-weight:600; margin-bottom:8px; }
+  .trackrow { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+              padding:9px 0; border-bottom:1px solid var(--border); }
+  .trackrow:last-of-type { border-bottom:none; }
+  .trackinfo { display:flex; flex-direction:column; gap:2px; }
+  .trackname { font-size:14px; font-weight:600; }
+  .trackex { font-size:13.5px; color:var(--text-muted); }
+  .tclear { display:flex; align-items:center; gap:6px; }
+  .tclear-q { font-size:12.5px; color:var(--text-muted); }
+  .tyn { font:inherit; font-size:13px; padding:5px 12px; border-radius:8px; cursor:pointer;
+         border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); }
+  .tyn-yes { border-color:rgba(63,201,154,.6); color:#3fc99a; box-shadow:0 0 6px rgba(63,201,154,.3); }
+  .tyn-no { border-color:rgba(226,75,74,.6); color:#e24b4a; box-shadow:0 0 6px rgba(226,75,74,.3); }
+  .tbadge { font-size:11.5px; color:var(--text-muted); border:1px solid var(--border); border-radius:6px;
+            padding:1px 7px; margin-top:2px; width:fit-content; }
+  .tbadge-ok { border-color:rgba(63,201,154,.5); color:#3fc99a; }
+  .thint { font-size:12.5px; color:var(--text-muted); margin-top:10px; }
+  .tgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; }
+  .tgrid-item { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+                display:flex; flex-direction:column; gap:5px; }
+  .tgrid-name { font-size:13.5px; font-weight:600; }
+  .tgrid-lv { font-size:12.5px; color:var(--text-muted); }
+  .tgrid-bar { height:5px; border-radius:3px; background:var(--border); overflow:hidden; }
+  .tgrid-bar div { height:100%; border-radius:3px;
+    background:linear-gradient(90deg, #3aa0ee, #a855f7, #ec4899); }
+  .tglow { box-shadow:0 0 10px rgba(168,85,247,.5); }
+  .tstatus { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+             font-size:13px; color:var(--text-muted); margin:8px 2px 20px; }
+  .tstatus a { color:var(--text-muted); }
+
   @media (max-width: 480px) { .stats { grid-template-columns: 1fr 1fr; } }
   @media (prefers-reduced-motion: reduce) { *, body::before { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
 
+<div class="tabbar">
+  <button class="tab tab-active" id="tabBtnPomodoro" onclick="switchTab('pomodoro')">Pomodoro</button>
+  <button class="tab" id="tabBtnTraining" onclick="switchTab('training')">Training</button>
+</div>
+
+<div id="tab-pomodoro">
 <div class="app">
 
   <div class="ladder" id="ladder" role="group" aria-label="Focus stages"></div>
@@ -313,6 +395,13 @@
   </div>
 
   <p class="hint"><kbd>Space</kbd> Start/Pause &nbsp;·&nbsp; <kbd>S</kbd> Skip &nbsp;·&nbsp; <kbd>R</kbd> −1 min &nbsp;·&nbsp; <kbd>+</kbd>/<kbd>-</kbd> Stage</p>
+</div>
+</div>
+
+<div id="tab-training" hidden>
+  <div class="app">
+    <div id="trainingRoot"></div>
+  </div>
 </div>
 
 <!-- History modal -->
@@ -428,7 +517,7 @@ const $ = (id) => document.getElementById(id);
 /* ============================================================
    3) SAVE / LOAD
    ============================================================ */
-const KEYS = { state: "pp2_state", settings: "pp2_settings", stats: "pp2_stats", stages: "pp2_stages" };
+const KEYS = { state: "pp2_state", settings: "pp2_settings", stats: "pp2_stats", stages: "pp2_stages", training: "pp2_training" };
 
 function save() {
   localStorage.setItem(KEYS.state, JSON.stringify(state));
@@ -1187,5 +1276,7 @@ async function bootstrap() {
 }
 bootstrap();
 </script>
+<script src="training-data.js"></script>
+<script src="training.js"></script>
 </body>
 </html>
