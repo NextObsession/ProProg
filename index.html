@@ -443,6 +443,11 @@
     <div class="fld"><label>Supabase Key (publishable / anon)</label><input class="txt" id="syncKey" placeholder="sb_publishable_..." spellcheck="false"></div>
     <div class="fld"><label>Sync code (your secret password, same on every device)</label><input class="txt" id="syncCode" placeholder="e.g. a-long-random-code" spellcheck="false"></div>
     <div id="syncMsg" style="font-size:13px;color:var(--text-muted);margin-top:10px;min-height:18px;"></div>
+    <div class="fld" style="margin-top:14px;">
+      <label>OBS overlay (for streaming)</label>
+      <button class="primary" id="obsCopy" type="button" style="width:100%;">Copy OBS link</button>
+      <p class="sub" style="margin-top:6px;">The link contains your sync code. Paste it only into OBS and never show it on stream.</p>
+    </div>
     <div class="actions">
       <button class="danger" id="syncOff">Sync off</button>
       <button class="primary" id="syncSave">Save &amp; connect</button>
@@ -769,7 +774,10 @@ setInterval(() => {
   state.remaining = Math.max(0, Math.round((state.endTime - now) / 1000));
   if (state.phase === "focus") { const c = Math.min(delta, prev); if (c > 0) addFocus(c); }
   if (state.remaining <= 0) transition(true); else render();
+  // While running: save (and thereby push to the cloud) every 30 s so the OBS overlay stats stay current.
+  if (now - lastPeriodicSave > 30000) { lastPeriodicSave = now; save(); }
 }, 250);
+let lastPeriodicSave = Date.now();
 
 /* ============================================================
    8) DARSTELLUNG
@@ -1161,6 +1169,16 @@ async function saveSyncCfg() {
   attachSyncListeners();
   setTimeout(() => $("syncOverlay").classList.remove("open"), 1000);
 }
+/* Build the URL for overlay.html (same folder as this page) incl. credentials, copy it to the clipboard. */
+function copyObsLink() {
+  if (!syncConfigured()) { $("syncMsg").textContent = "Save & connect first, then copy the link."; return; }
+  const base = location.href.split("#")[0].split("?")[0].replace(/[^\/]*$/, "") + "overlay.html";
+  const q = new URLSearchParams({ u: syncCfg.url, k: syncCfg.key, c: syncCfg.code, m: "timer,goal,stats,streak" });
+  const link = base + "?" + q.toString();
+  const done = () => { $("syncMsg").textContent = "OBS link copied. Paste it into an OBS Browser Source (don't show it on stream)."; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, () => window.prompt("Copy this link:", link));
+  else window.prompt("Copy this link:", link);
+}
 function turnSyncOff() {
   syncCfg = null;
   localStorage.removeItem("pp2_sync_cfg");
@@ -1245,6 +1263,7 @@ function init() {
   $("syncClose").onclick = () => $("syncOverlay").classList.remove("open");
   $("syncSave").onclick = saveSyncCfg;
   $("syncOff").onclick = turnSyncOff;
+  $("obsCopy").onclick = copyObsLink;
   $("syncOverlay").addEventListener("click", (e) => { if (e.target === $("syncOverlay")) $("syncOverlay").classList.remove("open"); });
 
   // Tastatur

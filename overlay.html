@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Pomodoro OBS Overlay</title>
+<style>
+  /* ------------------------------------------------------------
+     OBS overlay. Transparent background, read-only.
+     Config comes from the URL (see README / index.html "Copy OBS link"):
+       u=<supabase url>  k=<publishable key>  c=<sync code>
+       m=timer,goal,stats,streak,countdown   (modules, order = display order)
+       s=1.0      scale factor
+       dir=col|row   stacking direction when several modules are shown
+       card=1|0   1 = dark card behind each module, 0 = text only
+       poll=5     seconds between cloud checks (min 3)
+     ------------------------------------------------------------ */
+  :root { --accent:#3aa0ee; --accent-2:#c64bd6; --text:#e8e9f0; --muted:#8b90a3; --card:rgba(20,21,28,.88); --border:#2d3140; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background:transparent !important; overflow:hidden; }
+  body { font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif; color:var(--text); user-select:none; }
+
+  #root { display:flex; gap:12px; padding:8px; transform-origin:top left; width:max-content; }
+  #root.col { flex-direction:column; }
+  #root.row { flex-direction:row; align-items:flex-start; }
+
+  .mod { min-width:220px; padding:14px 18px; border-radius:16px; }
+  .card .mod { background:var(--card); border:1px solid var(--border); box-shadow:0 0 22px color-mix(in srgb, var(--accent-2) 22%, transparent); }
+  .nocard .mod { text-shadow:0 2px 6px rgba(0,0,0,.7); }
+
+  .label { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:6px; }
+  .big { font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-variant-numeric:tabular-nums; font-weight:300; line-height:1;
+         background:linear-gradient(120deg,var(--accent),var(--accent-2)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .clock { font-size:72px; }
+  .bar { height:5px; background:rgba(255,255,255,.1); border-radius:3px; overflow:hidden; margin-top:10px; }
+  .bar > i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .4s linear; }
+
+  .mod.timer { text-align:center; min-width:260px; }
+  .row2 { display:flex; justify-content:space-between; align-items:baseline; gap:24px; font-size:15px; padding:3px 0; }
+  .row2 b { font-weight:600; font-size:20px; font-variant-numeric:tabular-nums; }
+  .muted { color:var(--muted); font-size:13px; }
+  .num { font-size:44px; }
+
+  #status { position:fixed; right:6px; bottom:4px; width:8px; height:8px; border-radius:50%; background:#3fc99a; opacity:.0; transition:opacity .3s; }
+  #status.err { background:#e05; opacity:.9; }
+  #msg { padding:10px 14px; font-size:14px; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:12px; }
+</style>
+</head>
+<body>
+<div id="root" class="col card"></div>
+<div id="status"></div>
+
+<script>
+/* ============================================================
+   1) CONFIG from URL (query or hash)
+   ============================================================ */
+const P = new URLSearchParams(location.search || location.hash.replace(/^#/, ""));
+const CFG = {
+  url:  (P.get("u") || "").replace(/\/+$/, ""),
+  key:  P.get("k") || "",
+  code: P.get("c") || "",
+  mods: (P.get("m") || "timer,goal,stats,streak").split(",").map(s => s.trim()).filter(Boolean),
+  scale: Math.min(4, Math.max(0.3, parseFloat(P.get("s")) || 1)),
+  dir:  P.get("dir") === "row" ? "row" : "col",
+  card: P.get("card") !== "0",
+  poll: Math.max(3, parseInt(P.get("poll"), 10) || 5),
+};
+
+const ACCENTS = { focus: ["#3aa0ee", "#c64bd6"], break: ["#9d5ce0", "#e060b0"], long: ["#ec4899", "#a855f7"] };
+const LABELS  = { focus: "Focus", break: "Break", long: "Long break" };
+
+let data = null;      // { state, settings, stats } parsed
+let offline = false;
+
+/* ============================================================
+   2) PURE HELPERS (also unit-tested in node)
+   ============================================================ */
+function todayKey(now) { return new Date(now == null ? Date.now() : now).toISOString().slice(0, 10); }
+function fmtClock(sec) { sec = Math.max(0, sec); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }
+function fmtDur(sec) {
+  const m = Math.floor(sec / 60);
+  return m >= 60 ? Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "min" : m + "min";
+}
+function remainingSec(st, now) {
+  if (!st) return 0;
+  if (st.running && st.endTime) return Math.max(0, Math.round((st.endTime - now) / 1000));
+  return Math.max(0, st.remaining || 0);
+}
+function dayPlus(key, delta) { const d = new Date(key + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + delta); return d.toISOString().slice(0, 10); }
+/* consecutive days with goalDone, ending today (or yesterday if today is not done yet) */
+function streak(days, today) {
+  let k = days[today] && days[today].goalDone ? today : dayPlus(today, -1), n = 0;
+  while (days[k] && days[k].goalDone) { n++; k = dayPlus(k, -1); }
+  return n;
+}
+function countdownLeft(settings, today) {
+  if (!settings || !(settings.countdownStart > 0)) return null;
+  const rem = settings.countdownRemaining == null ? settings.countdownStart : settings.countdownRemaining;
+  const last = settings.countdownLastUpdate || today;
+  const diff = Math.max(0, Math.round((new Date(today + "T00:00:00Z") - new Date(last + "T00:00:00Z")) / 86400000));
+  return Math.max(0, rem - (isNaN(diff) ? 0 : diff));
+}
+function parseBlob(blob) {
+  const j = (k) => { try { return blob[k] ? JSON.parse(blob[k]) : null; } catch (e) { return null; } };
+  return { state: j("pp2_state"), settings: j("pp2_settings") || {}, stats: (j("pp2_stats") || { days: {} }) };
+}
+
+/* ============================================================
+   3) CLOUD POLLING (read only)
+   ============================================================ */
+async function poll() {
+  if (!CFG.url || !CFG.key || !CFG.code) return;
+  try {
+    const r = await fetch(CFG.url + "/rest/v1/pomodoro_sync?id=eq." + encodeURIComponent(CFG.code) + "&select=data",
+      { headers: { apikey: CFG.key, Authorization: "Bearer " + CFG.key }, cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    if (rows && rows[0] && rows[0].data) { data = parseBlob(rows[0].data); }
+    offline = false;
+  } catch (e) { offline = true; }
+  document.getElementById("status").className = offline ? "err" : "";
+}
+
+/* ============================================================
+   4) MODULES
+   ============================================================ */
+const root = document.getElementById("root");
+root.className = CFG.dir + " " + (CFG.card ? "card" : "nocard");
+root.style.transform = "scale(" + CFG.scale + ")";
+
+const refs = {};   // element refs for fast updates
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function row(label, valueEl) { const r = el("div", "row2"); r.appendChild(el("span", "muted", label)); r.appendChild(valueEl); return r; }
+
+const BUILD = {
+  timer() {
+    const m = el("div", "mod timer");
+    refs.phase = el("div", "label", "Waiting...");
+    refs.clock = el("div", "big clock", "--:--");
+    const bar = el("div", "bar"); refs.bar = el("i"); bar.appendChild(refs.bar);
+    m.append(refs.phase, refs.clock, bar); return m;
+  },
+  goal() {
+    const m = el("div", "mod goal");
+    m.appendChild(el("div", "label", "Daily goal"));
+    refs.goalTxt = el("b", null, "-");
+    m.appendChild(row("Focus today", refs.goalTxt));
+    const bar = el("div", "bar"); refs.goalBar = el("i"); bar.appendChild(refs.goalBar); m.appendChild(bar);
+    return m;
+  },
+  stats() {
+    const m = el("div", "mod stats");
+    m.appendChild(el("div", "label", "Today"));
+    refs.pts = el("b", null, "-"); refs.ses = el("b", null, "-"); refs.hs = el("b", null, "-");
+    m.append(row("Points", refs.pts), row("Sessions", refs.ses), row("Highscore", refs.hs));
+    return m;
+  },
+  streak() {
+    const m = el("div", "mod streak");
+    m.appendChild(el("div", "label", "Streak"));
+    refs.streak = el("div", "big num", "0");
+    m.appendChild(refs.streak); m.appendChild(el("div", "muted", "days with goal reached"));
+    return m;
+  },
+  countdown() {
+    const m = el("div", "mod countdown");
+    m.appendChild(el("div", "label", "Deadline"));
+    refs.cd = el("div", "big num", "-");
+    m.appendChild(refs.cd); m.appendChild(el("div", "muted", "days left"));
+    return m;
+  },
+};
+
+function build() {
+  if (!CFG.url || !CFG.key || !CFG.code) {
+    root.appendChild(el("div", "", "")).id = "msg";
+    document.getElementById("msg").textContent = "Overlay not configured. In the app: Sync > Copy OBS link.";
+    return;
+  }
+  CFG.mods.forEach(n => { if (BUILD[n]) root.appendChild(BUILD[n]()); });
+}
+
+function render() {
+  if (!data) return;
+  const now = Date.now(), today = todayKey(now), st = data.state, days = data.stats.days || {};
+  const rec = days[today] || { focusSec: 0, points: 0, sessions: 0 };
+
+  if (refs.clock) {
+    const phase = (st && st.phase) || "focus";
+    const [a, b] = ACCENTS[phase] || ACCENTS.focus;
+    document.documentElement.style.setProperty("--accent", a);
+    document.documentElement.style.setProperty("--accent-2", b);
+    const rem = remainingSec(st, now);
+    refs.clock.textContent = fmtClock(rem);
+    refs.phase.textContent = (st && st.running ? "" : "Paused - ") + (LABELS[phase] || "Focus");
+    refs.bar.style.width = (st && st.phaseTotal > 0 ? Math.min(100, (1 - rem / st.phaseTotal) * 100) : 0) + "%";
+  }
+  if (refs.goalTxt) {
+    const goal = (data.settings.dailyGoalMin || 0) * 60;
+    refs.goalTxt.textContent = fmtDur(rec.focusSec) + (goal ? " / " + fmtDur(goal) : "");
+    refs.goalBar.style.width = (goal ? Math.min(100, rec.focusSec / goal * 100) : 0) + "%";
+  }
+  if (refs.pts) {
+    refs.pts.textContent = Math.round(rec.points);
+    refs.ses.textContent = rec.sessions;
+    refs.hs.textContent = Math.round(Object.values(days).reduce((m, d) => Math.max(m, d.points || 0), 0));
+  }
+  if (refs.streak) refs.streak.textContent = streak(days, today);
+  if (refs.cd) { const c = countdownLeft(data.settings, today); refs.cd.textContent = c == null ? "-" : c; }
+}
+
+if (typeof document !== "undefined" && !window.__OVERLAY_TEST__) {
+  build();
+  poll().then(render);
+  setInterval(() => poll().then(render), CFG.poll * 1000);
+  setInterval(render, 250);
+}
+</script>
+</body>
+</html>
