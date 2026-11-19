@@ -206,6 +206,8 @@
   .stagerow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
   .stagerow .idx { width: 22px; color: var(--text-muted); font-size: 13px; }
   .stagerow .num { width: 70px; }
+  .stagerow .grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; color: var(--text-muted); font-size: 18px; line-height: 1; padding: 6px 4px; letter-spacing: -3px; }
+  .stagerow.dragging { background: var(--surface-2); border-radius: 8px; outline: 1px solid var(--accent); }
   .stagerow .x { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 7px; padding: 6px 10px; }
   .modal .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; font-size: 14px; }
   .modal .actions { display: flex; gap: 9px; margin-top: 18px; }
@@ -480,7 +482,7 @@ const DEFAULTS = {
     { f: 120, b: 20 },   // new level after 70
   ],
   longBreakMin: 25,
-  defaultStage: 2,
+  defaultStage: 0,          // start at Stage 1
   dailyGoalMin: 180,        // daily goal in minutes
   longBreakGoalMin: 120,    // focus minutes until the long break is earned
 };
@@ -1009,35 +1011,95 @@ async function resetEverything() {
   location.reload();
 }
 
-function openEdit() {
+/* ---- Stage editor: works on a copy (editBuf) so "Cancel" really cancels.
+   orig = index of the stage BEFORE editing (-1 = new). It is used to keep the
+   current stage and the start stage pointing at the same stage after reordering. ---- */
+let editBuf = [];
+
+function readEditBuf() {   // DOM (order + typed values) -> editBuf
+  editBuf = [...$("stageList").querySelectorAll(".stagerow")].map(r => ({
+    orig: parseInt(r.dataset.orig, 10),
+    f: Math.max(1, parseInt(r.querySelector("[data-k=f]").value, 10) || 1),
+    b: Math.max(1, parseInt(r.querySelector("[data-k=b]").value, 10) || 1),
+  }));
+}
+
+function renumberStages() {
+  $("stageList").querySelectorAll(".stagerow .idx").forEach((el, i) => { el.textContent = i + 1; });
+}
+
+function renderEdit() {
   const list = $("stageList"); list.innerHTML = "";
-  STAGES.forEach((s, i) => {
-    const row = document.createElement("div"); row.className = "stagerow";
+  editBuf.forEach((s, i) => {
+    const row = document.createElement("div"); row.className = "stagerow"; row.dataset.orig = s.orig;
     row.innerHTML =
+      "<span class='grip' title='Drag to reorder'>&#8942;&#8942;</span>" +
       "<span class='idx'>" + (i + 1) + "</span>" +
-      "<input class='num' type='number' min='1' value='" + s.f + "' data-i='" + i + "' data-k='f'> Focus" +
-      "<input class='num' type='number' min='1' value='" + s.b + "' data-i='" + i + "' data-k='b'> Break" +
-      "<button class='x' data-del='" + i + "'>&times;</button>";
+      "<input class='num' type='number' min='1' value='" + s.f + "' data-k='f'> Focus" +
+      "<input class='num' type='number' min='1' value='" + s.b + "' data-k='b'> Break" +
+      "<button class='x' data-del='1'>&times;</button>";
     list.appendChild(row);
   });
-  list.querySelectorAll("button[data-del]").forEach(b => b.onclick = () => {
-    if (STAGES.length <= 1) return;
-    STAGES.splice(parseInt(b.dataset.del, 10), 1); openEdit();
+  list.querySelectorAll("button[data-del]").forEach(btn => btn.onclick = () => {
+    readEditBuf();
+    if (editBuf.length <= 1) return;
+    editBuf.splice([...list.children].indexOf(btn.closest(".stagerow")), 1);
+    renderEdit();
   });
+  list.querySelectorAll(".grip").forEach(grip => grip.addEventListener("pointerdown", (e) => startStageDrag(e, grip.closest(".stagerow"))));
+}
+
+/* Drag & drop with pointer events (mouse AND touch). Only the OTHER rows are moved
+   in the DOM, never the dragged one, so touch dragging does not get cancelled. */
+function startStageDrag(e, row) {
+  e.preventDefault();
+  const list = $("stageList");
+  row.classList.add("dragging");
+  const move = (ev) => {
+    const others = [...list.querySelectorAll(".stagerow")].filter(r => r !== row);
+    const p = others.filter(r => { const b = r.getBoundingClientRect(); return ev.clientY > b.top + b.height / 2; }).length;
+    others.slice(0, p).forEach(r => list.insertBefore(r, row));   // rows that belong above
+    others.slice(p).forEach(r => list.appendChild(r));            // rows that belong below
+    renumberStages();
+  };
+  const up = () => {
+    row.classList.remove("dragging");
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", up);
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", up);
+}
+
+function addEditStage() {
+  readEditBuf();
+  const last = editBuf[editBuf.length - 1];
+  editBuf.push({ orig: -1, f: last.f, b: last.b });
+  renderEdit();
+}
+
+function openEdit() {
+  editBuf = STAGES.map((s, i) => ({ orig: i, f: s.f, b: s.b }));
+  renderEdit();
   $("longLenInput").value = longBreakMin;
   $("editOverlay").classList.add("open");
 }
 
 function saveEdit() {
-  const next = STAGES.map(s => ({ ...s }));
-  $("stageList").querySelectorAll("input.num").forEach(inp => {
-    const v = Math.max(1, parseInt(inp.value, 10) || 1);
-    next[parseInt(inp.dataset.i, 10)][inp.dataset.k] = v;
-  });
-  STAGES = next;
+  readEditBuf();
+  // Where did a stage end up? (follow it by its old index; if it was deleted, clamp)
+  const where = (old) => {
+    if (old == null) return old;
+    const i = editBuf.findIndex(x => x.orig === old);
+    return i >= 0 ? i : Math.min(old, editBuf.length - 1);
+  };
+  state.stageIndex = where(state.stageIndex);
+  state.blockToRestart = where(state.blockToRestart);
+  settings.startStage = where(settings.startStage);
+  STAGES = editBuf.map(({ f, b }) => ({ f, b }));
   longBreakMin = Math.max(1, parseInt($("longLenInput").value, 10) || longBreakMin);
-  state.stageIndex = Math.min(state.stageIndex, STAGES.length - 1);
-  settings.startStage = Math.min(settings.startStage, STAGES.length - 1);
   if (state.phase === "focus" && !state.running) setPhase("focus", STAGES[state.stageIndex].f * 60);
   buildLadder(); fillStartStage(); save(); render();
   $("editOverlay").classList.remove("open");
@@ -1045,7 +1107,7 @@ function saveEdit() {
 
 function fillStartStage() {
   const sel = $("startStage"); sel.innerHTML = "";
-  STAGES.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.f + "/" + s.b; sel.appendChild(o); });
+  STAGES.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = "Stage " + (i + 1) + " (" + s.f + "/" + s.b + ")"; sel.appendChild(o); });
   sel.value = Math.min(settings.startStage, STAGES.length - 1);
 }
 
@@ -1283,7 +1345,7 @@ function init() {
   $("editClose").onclick = () => $("editOverlay").classList.remove("open");
   $("editCancel").onclick = () => $("editOverlay").classList.remove("open");
   $("editSave").onclick = saveEdit;
-  $("addStageBtn").onclick = () => { const last = STAGES[STAGES.length - 1]; STAGES.push({ f: last.f, b: last.b }); openEdit(); };
+  $("addStageBtn").onclick = addEditStage;
   $("wipeBtn").onclick = () => { if (confirm("Really clear all statistics?")) { stats = { days: {} }; save(); render(); openHist(); } };
   $("histList").addEventListener("click", (e) => { const b = e.target.closest(".histdel"); if (b) deleteDay(b.dataset.k); });
   $("resetAllBtn").onclick = resetEverything;
