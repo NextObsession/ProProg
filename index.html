@@ -197,6 +197,9 @@
   .histrow .date { font-size: 14px; }
   .histrow .meta { font-size: 12px; color: var(--text-muted); }
   .histrow .pts { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; background: linear-gradient(120deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .histrow .right { display: flex; align-items: center; gap: 10px; }
+  .histdel { background: none; border: 1px solid #5a2a2f; color: #ff7676; border-radius: 8px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+  .histdel:hover { background: #3a1d21; }
   .histrow .minibar { grid-column: 1 / -1; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
   .histrow .minibar > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 
@@ -413,7 +416,11 @@
     <h2>History</h2>
     <p class="sub">Productivity per day</p>
     <div id="histList"></div>
-    <div class="actions"><button class="danger" id="wipeBtn">Clear all stats</button></div>
+    <div class="actions">
+      <button class="danger" id="wipeBtn">Clear all stats</button>
+      <button class="danger" id="resetAllBtn">Reset everything</button>
+    </div>
+    <p class="sub" style="margin-top:8px;">"Clear all stats" deletes only the daily history. "Reset everything" also wipes training, countdown, timer and the cloud copy.</p>
   </div>
 </div>
 
@@ -527,6 +534,7 @@ const $ = (id) => document.getElementById(id);
 const KEYS = { state: "pp2_state", settings: "pp2_settings", stats: "pp2_stats", stages: "pp2_stages", training: "pp2_training" };
 
 function save() {
+  if (resetting) return;
   localStorage.setItem(KEYS.state, JSON.stringify(state));
   localStorage.setItem(KEYS.settings, JSON.stringify(settings));
   localStorage.setItem(KEYS.stats, JSON.stringify(stats));
@@ -973,11 +981,32 @@ function openHist() {
     const row = document.createElement("div"); row.className = "histrow";
     row.innerHTML =
       "<div><div class='date'>" + fmtDate(k) + "</div><div class='meta'>" + fmtDuration(d.focusSec, false) + " · " + d.sessions + " Sessions</div></div>" +
-      "<div class='pts'>" + d.points + " P</div>" +
+      "<div class='right'><div class='pts'>" + d.points + " P</div><button class='histdel' data-k='" + k + "' title='Delete this day'>Delete</button></div>" +
       "<div class='minibar'><div style='width:" + Math.round(d.focusSec / maxSec * 100) + "%'></div></div>";
     list.appendChild(row);
   });
   $("histOverlay").classList.add("open");
+}
+
+/* Delete a single day from the history. */
+function deleteDay(k) {
+  if (!stats.days[k]) return;
+  if (!confirm("Delete all stats for " + fmtDate(k) + "?")) return;
+  delete stats.days[k];
+  save(); render(); openHist();
+}
+
+/* Reset EVERYTHING (stats, timer, settings, training, countdown) locally AND in the cloud.
+   Kept on this device: the sync login and your custom block stages. */
+let resetting = false;
+async function resetEverything() {
+  const answer = prompt("This deletes ALL progress on every device (stats, training, countdown, timer).\nType RESET to confirm:");
+  if (answer !== "RESET") return;
+  resetting = true;   // blocks save() so nothing is written back while we wipe
+  state.running = false;
+  [KEYS.state, KEYS.settings, KEYS.stats, KEYS.training].forEach(k => localStorage.removeItem(k));
+  if (syncConfigured()) { clearTimeout(pushTimer); pushTimer = null; await syncPush(); }  // cloud copy now has empty values
+  location.reload();
 }
 
 function openEdit() {
@@ -1256,6 +1285,8 @@ function init() {
   $("editSave").onclick = saveEdit;
   $("addStageBtn").onclick = () => { const last = STAGES[STAGES.length - 1]; STAGES.push({ f: last.f, b: last.b }); openEdit(); };
   $("wipeBtn").onclick = () => { if (confirm("Really clear all statistics?")) { stats = { days: {} }; save(); render(); openHist(); } };
+  $("histList").addEventListener("click", (e) => { const b = e.target.closest(".histdel"); if (b) deleteDay(b.dataset.k); });
+  $("resetAllBtn").onclick = resetEverything;
   [$("histOverlay"), $("editOverlay")].forEach(o => o.addEventListener("click", (e) => { if (e.target === o) o.classList.remove("open"); }));
 
   // Sync
